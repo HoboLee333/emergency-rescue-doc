@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1565C0">
+<title>急诊抢救记录</title>
+<style>
+  :root {
+    --primary: #1565C0;
+    --primary-light: #42A5F5;
+    --accent: #00897B;
+    --danger: #D32F2F;
+    --warning: #F57C00;
+    --bg: #F5F5F5;
+    --surface: #FFFFFF;
+    --border: #E0E0E0;
+    --text: #212121;
+    --text-sec: #757575;
+    --text-light: #BDBDBD;
+    --shadow: 0 2px 8px rgba(0,0,0,0.1);
+    --radius: 12px;
+    --bottom-bar: 56px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: hidden;
+    font-size: 14px;
+  }
+
+  /* ===== TOP BAR ===== */
+  .top-bar {
+    background: var(--primary);
+    color: white;
+    padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top, 12px));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    position: relative;
+    z-index: 50;
+  }
+  .top-bar h1 { font-size: 17px; font-weight: 600; }
+  .top-bar .top-actions { display: flex; gap: 4px; }
+  .top-bar .btn-icon {
+    width: 36px; height: 36px;
+    border: none;
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border-radius: 8px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .top-bar .btn-icon:active { background: rgba(255,255,255,0.3); }
+
+  /* ===== MAIN CONTENT AREA — Split Layout ===== */
+  .main-area {
+    height: calc(100vh - 56px - var(--safe-bottom));
+    height: calc(100dvh - 56px - var(--safe-bottom));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ===== TIMELINE (Upper Panel) ===== */
+  .timeline-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 80px;
+    overflow: hidden;
+  }
+  .timeline-header {
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .timeline-header .tl-title { font-size: 15px; font-weight: 600; }
+  .timeline-header .tl-count {
+    font-size: 12px;
+    color: white;
+    background: var(--primary);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .timeline-list {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 12px;
+  }
+
+  /* Timeline item - mobile */
+  .tl-item {
+    background: var(--surface);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+    position: relative;
+    touch-action: pan-y;
+  }
+  .tl-item .swipe-container {
+    display: flex;
+    transform: translateX(0);
+    transition: transform 0.2s ease;
+  }
+  .tl-item .tl-main {
+    flex-shrink: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    gap: 10px;
+    background: var(--surface);
+  }
+  .tl-item .swipe-delete {
+    flex-shrink: 0;
+    width: 72px;
+    background: var(--danger);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .tl-item .tl-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .tl-item.type-med .tl-dot { background: var(--danger); }
+  .tl-item.type-measure .tl-dot { background: var(--accent); }
+  .tl-item.type-tube .tl-dot { background: #5C6BC0; }
+  .tl-item .tl-body { flex: 1; min-width: 0; }
+  .tl-item .tl-time {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+  .tl-item .tl-time:active { background: #E3F2FD; }
+  .tl-item .tl-name {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tl-item .tl-detail {
+    font-size: 11px;
+    color: var(--text-sec);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tl-item .tl-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    font-weight: 500;
+  }
+  .tl-item.type-med .tl-badge { background: #FFEBEE; color: #C62828; }
+  .tl-item.type-measure .tl-badge { background: #E0F2F1; color: #00695C; }
+  .tl-item.type-tube .tl-badge { background: #E8EAF6; color: #283593; }
+
+  .tl-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-light);
+  }
+  .tl-empty .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .tl-empty p { font-size: 14px; }
+  .tl-empty .sub { font-size: 12px; margin-top: 4px; }
+
+  /* ===== DRAG HANDLE (Resizable Divider) ===== */
+  .drag-handle {
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: ns-resize;
+    touch-action: none;
+    user-select: none;
+    flex-shrink: 0;
+    background: #F0F0F0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 5;
+  }
+  .drag-handle:active { background: #E3F2FD; }
+  .drag-handle .dh-grip {
+    width: 40px; height: 4px;
+    background: #BDBDBD;
+    border-radius: 2px;
+    transition: background 0.15s;
+  }
+  .drag-handle:active .dh-grip { background: var(--primary-light); }
+
+  /* ===== INLINE SELECTION PANEL (Lower) ===== */
+  .inline-panel {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .inline-tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .inline-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 8px 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-light);
+    font-size: 10px;
+    font-family: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.2s;
+    position: relative;
+  }
+  .inline-tab .it-icon { font-size: 20px; }
+  .inline-tab.active { color: var(--primary); }
+  .inline-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20%; right: 20%;
+    height: 3px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+  .inline-tab:active { opacity: 0.7; }
+
+  .inline-subtabs {
+    display: flex;
+    padding: 6px 12px;
+    gap: 4px;
+    flex-shrink: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--surface);
+  }
+  .inline-subtab {
+    padding: 5px 12px;
+    border: none;
+    background: var(--bg);
+    border-radius: 16px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+    color: var(--text-sec);
+    transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
+  }
+  .inline-subtab.active { background: var(--primary); color: white; }
+
+  .inline-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 12px 12px;
+    min-height: 0;
+  }
+
+  /* ===== BOTTOM BAR — removed; nav is now inline ===== */
+
+  /* ===== FAB ===== */
+  .fab-container {
+    position: fixed;
+    bottom: calc(16px + var(--safe-bottom));
+    right: 16px;
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+  .fab-menu {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .fab-menu.show { display: flex; }
+  .fab-action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    padding: 8px 14px;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    white-space: nowrap;
+    color: var(--text);
+    transition: transform 0.15s;
+  }
+  .fab-action:active { transform: scale(0.95); }
+  .fab-action .fab-action-icon { font-size: 16px; }
+  .fab-main {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary);
+    color: white;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(21,101,192,0.4);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .fab-main:active { transform: scale(0.92); }
+  .fab-main.open { transform: rotate(45deg); }
+
+  /* ===== SHEETS (Patient / Record — keep as popup) ===== */
+  .sheet-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .sheet-overlay.show { display: block; opacity: 1; }
+
+  .bottom-sheet {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: 0;
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    z-index: 210;
+    max-height: 75vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+  }
+  .bottom-sheet.show { transform: translateY(0); }
+
+  .sheet-handle {
+    width: 36px; height: 4px;
+    background: #CCC;
+    border-radius: 2px;
+    margin: 8px auto;
+    flex-shrink: 0;
+  }
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 16px 8px;
+    flex-shrink: 0;
+  }
+  .sheet-header h2 { font-size: 16px; font-weight: 600; }
+  .sheet-header .sheet-close {
+    width: 32px; height: 32px;
+    border: none;
+    background: var(--bg);
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .sheet-tabs {
+    display: flex;
+    padding: 0 16px;
+    gap: 4px;
+    flex-shrink: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sheet-tab {
+    padding: 6px 12px;
+    border: none;
+    background: var(--bg);
+    border-radius: 16px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+    color: var(--text-sec);
+    transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
+  }
+  .sheet-tab.active { background: var(--primary); color: white; }
+
+  .sheet-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 12px 20px;
+  }
+
+  /* Selection grid - mobile */
+  .sel-cat {
+    margin-bottom: 12px;
+  }
+  .sel-cat-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-sec);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    padding: 0 4px;
+  }
+  .sel-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .sel-btn {
+    padding: 10px 10px;
+    background: var(--bg);
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    text-align: left;
+    font-family: inherit;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 48px;
+  }
+  .sel-btn:active { transform: scale(0.97); background: #E3F2FD; border-color: var(--primary-light); }
+  .sel-btn .sel-name { font-weight: 500; line-height: 1.3; }
+  .sel-btn .sel-desc { font-size: 10px; color: var(--text-light); line-height: 1.2; }
+
+  .sel-custom {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .sel-custom input {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+  }
+  .sel-custom input:focus { border-color: var(--primary-light); }
+  .sel-custom .btn-add {
+    padding: 8px 14px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  /* ===== PATIENT SHEET ===== */
+  .patient-sheet-content {
+    padding: 4px 16px 20px;
+  }
+  .patient-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .form-row {
+    display: flex;
+    gap: 8px;
+  }
+  .form-field {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .form-field.full { flex: 1 1 100%; }
+  .form-field label {
+    font-size: 11px;
+    color: var(--text-sec);
+    font-weight: 500;
+  }
+  .form-field input, .form-field select {
+    padding: 8px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    width: 100%;
+  }
+  .form-field input:focus, .form-field select:focus { border-color: var(--primary-light); }
+
+  /* ===== RECORD SHEET ===== */
+  .record-sheet {
+    max-height: 85vh !important;
+  }
+  .record-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 300px;
+    border: none;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.8;
+    font-family: "PingFang SC", "Microsoft YaHei", serif;
+    resize: none;
+    outline: none;
+    background: var(--bg);
+    border-radius: 0 0 20px 20px;
+  }
+
+  /* ===== MODAL (Time Edit / Dose) ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.show { display: flex; opacity: 1; }
+  .modal-box {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    width: 85%;
+    max-width: 320px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+  .modal-box h3 { font-size: 16px; margin-bottom: 12px; }
+  .modal-box input[type="time"] {
+    width: 100%;
+    padding: 10px;
+    font-size: 18px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    margin-bottom: 12px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .modal-actions button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .modal-actions .btn-cancel { background: var(--bg); color: var(--text); }
+  .modal-actions .btn-confirm { background: var(--primary); color: white; }
+
+  .dose-options { display: flex; flex-direction: column; gap: 6px; }
+  .dose-opt {
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: background 0.15s;
+  }
+  .dose-opt:active { background: #E3F2FD; }
+  .dose-custom-input {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+  }
+  .dose-custom-input input {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+
+  /* Vital signs form - mobile */
+  .vital-form-m { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 4px 8px; }
+  .vital-row-m { display: flex; flex-direction: column; gap: 3px; }
+  .vital-row-m.full { grid-column: 1 / -1; }
+  .vital-row-m label { font-size: 11px; font-weight: 500; color: var(--text-sec); }
+  .vital-row-m input { padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; }
+  .vital-row-m input:focus { border-color: var(--primary-light); }
+  .vital-bp-m { display: flex; gap: 4px; align-items: center; }
+  .vital-bp-m input { flex: 1; }
+  .vital-bp-m span { font-size: 12px; color: var(--text-light); }
+  .vital-btn-m { grid-column: 1 / -1; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 4px; }
+  .vital-btn-m:active { opacity: 0.85; transform: scale(0.98); }
+  .vital-hint-m { grid-column: 1 / -1; font-size: 11px; color: var(--text-light); text-align: center; margin-top: -4px; }
+
+  .tl-item.type-vital .tl-dot { background: #7B1FA2; }
+  .tl-item.type-vital .tl-badge { background: #F3E5F5; color: #6A1B9A; }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed;
+    bottom: calc(80px + var(--safe-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    background: #323232;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    z-index: 500;
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 2s forwards;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+  @keyframes toastOut { to { opacity:0; transform:translateX(-50%) translateY(-10px); } }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <h1>🏥 抢救记录</h1>
+  <div class="top-actions">
+    <button class="btn-icon" onclick="togglePatientSheet()" title="患者信息">👤</button>
+    <button class="btn-icon" onclick="showRecordInline()" title="查看记录">📄</button>
+    <button class="btn-icon" onclick="handleClear()" title="清空">🗑</button>
+  </div>
+</div>
+
+<!-- MAIN AREA — Split Layout -->
+<div class="main-area" id="mainArea">
+  <!-- TIMELINE VIEW (Upper) -->
+  <div class="timeline-view" id="timelineView">
+    <div class="timeline-header">
+      <span class="tl-title">⏱ 抢救时间线</span>
+      <span class="tl-count" id="tlCount">0 项</span>
+    </div>
+    <div class="timeline-list" id="timelineList">
+      <div class="tl-empty">
+        <div class="empty-icon">📋</div>
+        <p>点击下方标签开始记录</p>
+        <p class="sub">选择药物、措施、管道或体征</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRAG HANDLE (Draggable Divider) -->
+  <div class="drag-handle" id="dragHandle" onmousedown="dragStart(event)" ontouchstart="dragStart(event)">
+    <div class="dh-grip"></div>
+  </div>
+
+  <!-- INLINE SELECTION PANEL (Lower) -->
+  <div class="inline-panel" id="inlinePanel">
+    <!-- Nav tabs -->
+    <div class="inline-tabs" id="inlineTabs">
+      <button class="inline-tab active" onclick="switchInlineTab('meds', this)">
+        <span class="it-icon">💊</span><span>药物</span>
+      </button>
+      <button class="inline-tab" onclick="switchInlineTab('measures', this)">
+        <span class="it-icon">🩺</span><span>措施</span>
+      </button>
+      <button class="inline-tab" onclick="switchInlineTab('tubes', this)">
+        <span class="it-icon">🩸</span><span>管道</span>
+      </button>
+      <button class="inline-tab" onclick="switchInlineTab('vitals', this)">
+        <span class="it-icon">📊</span><span>体征</span>
+      </button>
+      <button class="inline-tab" onclick="switchInlineTab('record', this)">
+        <span class="it-icon">📄</span><span>记录</span>
+      </button>
+    </div>
+
+    <!-- Sub-category tabs (for meds/measures/tubes) -->
+    <div class="inline-subtabs" id="inlineSubtabs"></div>
+
+    <!-- Inline content area -->
+    <div class="inline-content" id="inlineContent"></div>
+  </div>
+</div>
+
+<!-- FAB -->
+<div class="fab-container">
+  <div class="fab-menu" id="fabMenu">
+    <button class="fab-action" onclick="handleQuickTime('start')">
+      <span class="fab-action-icon">🟢</span> 抢救开始
+    </button>
+    <button class="fab-action" onclick="handleQuickTime('end')">
+      <span class="fab-action-icon">🔴</span> 抢救结束
+    </button>
+    <button class="fab-action" onclick="handleCopyText()">
+      <span class="fab-action-icon">📋</span> 复制文本
+    </button>
+    <button class="fab-action" onclick="handleExportJSON()">
+      <span class="fab-action-icon">📥</span> 导出数据
+    </button>
+  </div>
+  <button class="fab-main" id="fabMain" onclick="toggleFab()">＋</button>
+</div>
+
+<!-- ===== PATIENT BOTTOM SHEET ===== -->
+<div class="sheet-overlay" id="patientOverlay" onclick="togglePatientSheet()"></div>
+<div class="bottom-sheet" id="patientSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <h2>👤 患者信息</h2>
+    <button class="sheet-close" onclick="togglePatientSheet()">✕</button>
+  </div>
+  <div class="patient-sheet-content">
+    <div class="patient-form">
+      <div class="form-row">
+        <div class="form-field"><label>姓名</label><input type="text" id="ptName" placeholder="患者姓名"></div>
+        <div class="form-field"><label>性别</label><select id="ptGender"><option value="">--</option><option>男</option><option>女</option></select></div>
+        <div class="form-field"><label>年龄</label><input type="text" id="ptAge" placeholder="岁"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>科室</label><input type="text" id="ptDept" value="急诊科"></div>
+        <div class="form-field"><label>就诊号</label><input type="text" id="ptId" placeholder="病历号"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field full"><label>抢救日期</label><input type="date" id="ptDate"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field full"><label>主诉</label><input type="text" id="ptChief" placeholder="主要症状"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field full"><label>初步诊断</label><input type="text" id="ptDiag" placeholder="初步诊断"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>抢救医师</label><input type="text" id="ptDoctor" placeholder="医师签名"></div>
+        <div class="form-field"><label>执行护士</label><input type="text" id="ptNurse" placeholder="护士签名"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field full"><label>记录核对者</label><input type="text" id="ptVerifier" placeholder="核对者签名"></div>
+      </div>
+    </div>
+</div>
+</div>
+
+<!-- ===== TIME EDIT MODAL ===== -->
+<div class="modal-overlay" id="timeModal">
+  <div class="modal-box">
+    <h3>⏰ 编辑时间</h3>
+    <input type="time" id="timeInput" step="1">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeTimeModal()">取消</button>
+      <button class="btn-confirm" onclick="saveTimeEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DOSE SELECT MODAL ===== -->
+<div class="modal-overlay" id="doseModal">
+  <div class="modal-box">
+    <h3 id="doseTitle">选择剂量</h3>
+    <div class="dose-options" id="doseOptions"></div>
+    <div class="dose-custom-input">
+      <input type="text" id="doseCustom" placeholder="自定义剂量">
+      <button class="btn-confirm" style="border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;" onclick="confirmDoseCustom()">确定</button>
+    </div>
+    <button class="btn-cancel" style="width:100%;margin-top:8px;padding:8px;border:none;background:var(--bg);border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;" onclick="closeDoseModal()">取消</button>
+  </div>
+</div>
+
+<script>
+// ===== DATA =====
+const MED_DATA = {
+  cps: { label: '心肺复苏用药', icon: '❤️', items: [
+    { name: '肾上腺素', doses: ['1mg iv','1mg 静推','0.01mg/kg 静推'] },
+    { name: '阿托品', doses: ['0.5mg iv','1mg iv'] },
+    { name: '胺碘酮', doses: ['150mg iv','300mg iv'] },
+    { name: '利多卡因', doses: ['50mg iv','100mg iv'] },
+    { name: '硫酸镁', doses: ['2.5g iv（扭转室速）','1g iv'] },
+    { name: '维拉帕米', doses: ['5mg iv（PSVT）','2.5mg iv'] },
+  ]},
+  vaso: { label: '血管活性药', icon: '💉', items: [
+    { name: '多巴胺', doses: ['5μg/kg/min 泵入','10μg/kg/min 泵入','20μg/kg/min 泵入'] },
+    { name: '去甲肾上腺素', doses: ['0.05μg/kg/min','0.1μg/kg/min','0.5μg/kg/min'] },
+    { name: '多巴酚丁胺', doses: ['2.5μg/kg/min','5μg/kg/min','10μg/kg/min'] },
+    { name: '间羟胺', doses: ['0.5mg iv','2mg iv','5mg iv'] },
+    { name: '异丙肾上腺素', doses: ['1mg iv','1mg 泵入'] },
+    { name: '去氧肾上腺素', doses: ['50μg iv','100μg iv','200μg iv'] },
+    { name: '肾上腺素泵入', doses: ['0.1μg/kg/min','0.5μg/kg/min'] },
+    { name: '米力农', doses: ['50μg/kg负荷','0.25-0.75μg维持'] },
+  ]},
+  resp: { label: '呼吸系统用药', icon: '🫁', items: [
+    { name: '尼可刹米', doses: ['0.375g iv','0.75g iv'] },
+    { name: '洛贝林', doses: ['3mg iv','6mg iv'] },
+    { name: '氨茶碱', doses: ['0.25g iv','0.5g iv'] },
+    { name: '沙丁胺醇雾化', doses: ['2.5mg 雾化','5mg 雾化'] },
+    { name: '异丙托溴铵雾化', doses: ['0.5mg 雾化'] },
+    { name: '布地奈德雾化', doses: ['1mg 雾化','2mg 雾化'] },
+  ]},
+  sed: { label: '镇静镇痛药', icon: '💤', items: [
+    { name: '地西泮', doses: ['5mg iv','10mg iv'] },
+    { name: '咪达唑仑', doses: ['2mg iv','5mg iv'] },
+    { name: '丙泊酚', doses: ['1mg/kg iv','2mg/kg iv'] },
+    { name: '吗啡', doses: ['3mg iv','5mg iv','10mg iv'] },
+    { name: '芬太尼', doses: ['50μg iv','100μg iv'] },
+    { name: '舒芬太尼', doses: ['5μg iv','10μg iv'] },
+    { name: '右美托咪定', doses: ['1μg/kg负荷','0.5μg/kg/h维持'] },
+    { name: '氯胺酮', doses: ['0.5mg/kg iv','1mg/kg iv'] },
+  ]},
+  neuro: { label: '神经科用药', icon: '🧠', items: [
+    { name: '甘露醇', doses: ['125ml ivgtt','250ml ivgtt'] },
+    { name: '呋塞米', doses: ['20mg iv','40mg iv'] },
+    { name: '苯巴比妥', doses: ['100mg im','200mg im'] },
+    { name: '丙戊酸钠', doses: ['400mg iv','800mg iv'] },
+    { name: '左乙拉西坦', doses: ['500mg iv','1000mg iv'] },
+  ]},
+  misc: { label: '其他用药', icon: '🧪', items: [
+    { name: '纳洛酮', doses: ['0.4mg iv','2mg iv'] },
+    { name: '碳酸氢钠', doses: ['125ml iv','250ml iv'] },
+    { name: '地塞米松', doses: ['5mg iv','10mg iv'] },
+    { name: '氢化可的松', doses: ['100mg iv','200mg iv'] },
+    { name: '氟马西尼', doses: ['0.2mg iv','0.5mg iv','1mg iv'] },
+    { name: '异丙嗪', doses: ['25mg im'] },
+    { name: '奥美拉唑', doses: ['40mg iv','80mg iv'] },
+    { name: '氨甲环酸', doses: ['0.5g iv','1g iv'] },
+    { name: '血凝酶', doses: ['1KU iv','2KU iv'] },
+    { name: '硝酸甘油', doses: ['5μg/min 泵入','10μg/min 泵入'] },
+    { name: '硝普钠', doses: ['0.5μg/kg/min','3μg/kg/min','8μg/kg/min'] },
+    { name: '乌拉地尔', doses: ['12.5mg iv','25mg iv'] },
+    { name: '地尔硫卓', doses: ['10mg iv（室率控制）'] },
+    { name: '生长抑素', doses: ['250μg负荷','250μg/h维持'] },
+    { name: '葡萄糖酸钙', doses: ['10% 10ml iv'] },
+    { name: '50%葡萄糖', doses: ['40ml iv','60ml iv'] },
+    { name: '胰岛素', doses: ['4U iv','8U iv','泵入'] },
+  ]},
+};
+
+const MEASURE_DATA = {
+  circ: { label: '循环支持', icon: '🫀', items: [
+    { name: '心肺复苏 (CPR)', detail: '持续胸外按压+人工通气' },
+    { name: '电除颤', detail: '双向波200J' },
+    { name: '同步电复律', detail: '' },
+    { name: '胸外按压', detail: '持续胸外心脏按压' },
+    { name: '心电监护', detail: '持续心电监护' },
+    { name: '无创血压监测', detail: 'NIBP' },
+    { name: '有创血压监测', detail: 'ABP' },
+    { name: '中心静脉压监测', detail: 'CVP' },
+    { name: '血氧监测', detail: 'SpO₂监测' },
+    { name: 'PICCO监测', detail: '心排量监测' },
+    { name: 'IABP', detail: '主动脉内球囊反搏' },
+    { name: 'ECMO', detail: '体外膜肺氧合' },
+  ]},
+  airway: { label: '气道与呼吸', icon: '🫁', items: [
+    { name: '气管插管', detail: '经口气管插管' },
+    { name: '机械通气', detail: '呼吸机辅助通气' },
+    { name: '高流量氧疗(HFNC)', detail: '经鼻高流量氧疗' },
+    { name: '球囊面罩通气', detail: '简易呼吸器' },
+    { name: '环甲膜穿刺/切开', detail: '紧急气道建立' },
+    { name: '开放气道', detail: '仰头抬颏法' },
+    { name: '吸痰', detail: '气道分泌物清除' },
+    { name: '吸氧', detail: '鼻导管/面罩' },
+    { name: '呼气末CO₂监测', detail: 'EtCO₂' },
+    { name: '支气管镜检', detail: '床旁支气管镜' },
+    { name: '经皮气管切开', detail: '' },
+  ]},
+  dx: { label: '诊疗操作', icon: '🔬', items: [
+    { name: '心电图 (ECG)', detail: '12导联心电图' },
+    { name: '快速血糖', detail: '' },
+    { name: '血气分析', detail: '动脉血气' },
+    { name: '床旁超声(POCUS)', detail: '' },
+    { name: 'FAST超声', detail: '创伤超声' },
+    { name: '洗胃', detail: '' },
+    { name: '导尿', detail: '留置导尿' },
+    { name: '留置胃管', detail: '鼻饲/减压' },
+    { name: '胸腔穿刺', detail: '' },
+    { name: '腹腔穿刺', detail: '' },
+    { name: '腰椎穿刺', detail: '' },
+    { name: 'CT检查', detail: '急诊CT' },
+    { name: '血液净化', detail: 'CRRT/血液灌流' },
+  ]},
+  trauma: { label: '创伤处理', icon: '🩹', items: [
+    { name: '止血处理', detail: '' },
+    { name: '包扎固定', detail: '' },
+    { name: '清创缝合', detail: '' },
+    { name: '破伤风免疫', detail: 'TAT/免疫球蛋白' },
+  ]},
+  postResus: { label: '复苏后管理', icon: '🔄', items: [
+    { name: '亚低温治疗(TTM)', detail: '目标温度管理' },
+    { name: '脑保护', detail: '' },
+    { name: '容量管理', detail: '液体复苏' },
+    { name: '输血', detail: '红细胞/血浆/血小板' },
+  ]},
+};
+
+const TUBE_DATA = {
+  vasc: { label: '血管通路', icon: '💉', items: [
+    { name: '外周静脉通路 (IV)', detail: '留置针' },
+    { name: '中心静脉置管 (CVC)', detail: '颈内/锁骨下/股静脉' },
+    { name: '动脉置管 (ABP)', detail: '桡动脉/股动脉' },
+    { name: 'PICC', detail: '经外周中心静脉置管' },
+    { name: '骨髓腔输液 (IO)', detail: '紧急骨内通路' },
+    { name: '输液港 (PORT)', detail: '' },
+  ]},
+  airway: { label: '气道管道', icon: '🫁', items: [
+    { name: '气管插管导管', detail: 'ID 7.0-8.5mm' },
+    { name: '口咽通气管 (OPA)', detail: '' },
+    { name: '鼻咽通气管 (NPA)', detail: '' },
+    { name: '喉罩 (LMA)', detail: '' },
+    { name: '气管切开套管', detail: '' },
+  ]},
+  other: { label: '其他管道', icon: '🩺', items: [
+    { name: '胃管', detail: '鼻胃管' },
+    { name: '导尿管 (Foley)', detail: '' },
+    { name: '胸腔闭式引流管', detail: '' },
+    { name: '腹腔引流管', detail: '' },
+    { name: '脑室引流管(EVD)', detail: '' },
+    { name: 'CRRT管路', detail: '' },
+    { name: 'ECMO管路', detail: 'VA/VV-ECMO' },
+  ]},
+};
+
+// ===== STATE =====
+const state = {
+  items: [],
+  editingId: null,
+  rescueStart: null,
+  rescueEnd: null,
+  fabOpen: false,
+};
+let idCounter = 0;
+let swipeItemId = null;
+let touchStartX = 0;
+
+// ===== HELPERS =====
+function now() { return new Date().toTimeString().slice(0,8); }
+function nowFull() {
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function fmtTime(t) { return t && t.length >= 5 ? t.slice(0,5) : t; }
+
+// ===== ADD ITEMS =====
+function addItem(type, name, detail) {
+  state.items.push({ id: ++idCounter, type, name, detail: detail||'', time: now() });
+  state.items.sort((a,b) => a.time.localeCompare(b.time));
+  renderAll();
+  showToast(`已添加「${name.slice(0,8)}」`);
+  // Haptic feedback
+  if (navigator.vibrate) navigator.vibrate(20);
+}
+
+function medsToAdd(name, dose) { addItem('med', name, dose); }
+function measureToAdd(name, detail) { addItem('measure', name, detail||''); }
+function tubeToAdd(name, detail) { addItem('tube', name, detail||''); }
+
+// ===== DELETE (swipe) =====
+function deleteItem(id) {
+  state.items = state.items.filter(i => i.id !== id);
+  renderAll();
+  showToast('已删除');
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+// ===== TIME EDIT =====
+function openTimeEdit(id) {
+  state.editingId = id;
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('timeInput').value = item.time;
+  document.getElementById('timeModal').classList.add('show');
+  setTimeout(() => document.getElementById('timeInput').focus(), 100);
+}
+function closeTimeModal() { document.getElementById('timeModal').classList.remove('show'); state.editingId = null; }
+function saveTimeEdit() {
+  const t = document.getElementById('timeInput').value;
+  const item = state.items.find(i => i.id === state.editingId);
+  if (item && t) { item.time = t; state.items.sort((a,b)=>a.time.localeCompare(b.time)); renderAll(); showToast('时间已更新'); }
+  closeTimeModal();
+}
+
+// ===== QUICK TIME =====
+function handleQuickTime(which) {
+  if (which === 'start') {
+    state.rescueStart = now();
+    addItem('measure', '⏵ 抢救开始', '');
+    showToast(`抢救开始 ${fmtTime(state.rescueStart)}`);
+  } else {
+    state.rescueEnd = now();
+    addItem('measure', '⏹ 抢救结束', '');
+    showToast(`抢救结束 ${fmtTime(state.rescueEnd)}`);
+  }
+  if (navigator.vibrate) navigator.vibrate([30,50,30]);
+}
+
+// ===== CLEAR =====
+function handleClear() {
+  if (state.items.length === 0) return;
+  if (confirm('确定清空所有记录？')) {
+    state.items = [];
+    state.rescueStart = null;
+    state.rescueEnd = null;
+    renderAll();
+    showToast('已清空');
+  }
+}
+
+// ===== RENDER =====
+function renderAll() {
+  renderTimeline();
+  renderRecord();
+  document.getElementById('tlCount').textContent = `${state.items.length} 项`;
+}
+
+function renderTimeline() {
+  const container = document.getElementById('timelineList');
+  if (state.items.length === 0) {
+    container.innerHTML = `<div class="tl-empty"><div class="empty-icon">📋</div><p>点击底部「＋」开始记录</p><p class="sub">选择药物、措施或管道</p></div>`;
+    return;
+  }
+  const sorted = [...state.items].sort((a,b) => a.time.localeCompare(b.time));
+  const badges = { med: '药', measure: '措施', tube: '管道', vital: '体征' };
+  container.innerHTML = sorted.map(item => `
+    <div class="tl-item type-${item.type}" id="tl-${item.id}">
+      <div class="swipe-container" id="swipe-${item.id}">
+        <div class="tl-main">
+          <div class="tl-dot"></div>
+          <div class="tl-body">
+            <span class="tl-time" onclick="openTimeEdit(${item.id})">${fmtTime(item.time)}</span>
+            <div class="tl-name">${item.name}</div>
+            ${item.detail ? `<div class="tl-detail">${item.detail}</div>` : ''}
+          </div>
+          <span class="tl-badge">${badges[item.type]}</span>
+        </div>
+        <div class="swipe-delete" onclick="deleteItem(${item.id})">删除</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Swipe to delete
+  sorted.forEach(item => {
+    const el = document.getElementById(`swipe-${item.id}`);
+    if (!el) return;
+    let startX = 0, startY = 0, isSwiping = false;
+    el.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      isSwiping = false;
+    }, { passive: true });
+    el.addEventListener('touchmove', e => {
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (Math.abs(dx) > Math.abs(dy) && dx < -20) {
+        isSwiping = true;
+        e.preventDefault();
+        const offset = Math.max(-72, dx);
+        el.style.transform = `translateX(${offset}px)`;
+      }
+    }, { passive: false });
+    el.addEventListener('touchend', () => {
+      if (isSwiping) {
+        el.style.transform = 'translateX(-72px)';
+      }
+    });
+  });
+}
+
+function generateRecordText() {
+  const ptName = document.getElementById('ptName').value || '________';
+  const ptGender = document.getElementById('ptGender').value || '';
+  const ptAge = document.getElementById('ptAge').value || '';
+  const ptDept = document.getElementById('ptDept').value || '急诊科';
+  const ptId = document.getElementById('ptId').value || '';
+  const chief = document.getElementById('ptChief').value || '';
+  const diag = document.getElementById('ptDiag').value || '';
+  const dateStr = document.getElementById('ptDate').value || new Date().toISOString().slice(0,10);
+
+  let text = `═══════════════════════════════════\n`;
+  text += `          急 诊 抢 救 记 录\n`;
+  text += `═══════════════════════════════════\n\n`;
+  text += `【基本信息】\n`;
+  text += `姓名：${ptName}      性别：${ptGender}      年龄：${ptAge}\n`;
+  text += `科室：${ptDept}      就诊号：${ptId}\n`;
+  text += `日期：${dateStr}\n`;
+  if (chief) text += `主诉：${chief}\n`;
+  if (diag) text += `初步诊断：${diag}\n`;
+  text += `\n`;
+
+  if (state.rescueStart || state.rescueEnd) {
+    text += `【抢救时间】\n`;
+    if (state.rescueStart) text += `开始：${fmtTime(state.rescueStart)}\n`;
+    if (state.rescueEnd) text += `结束：${fmtTime(state.rescueEnd)}\n`;
+    text += `\n`;
+  }
+
+  text += `【抢救经过】\n\n`;
+  const sorted = [...state.items].sort((a,b) => a.time.localeCompare(b.time));
+  const emojis = { med: '💊', measure: '🩺', tube: '🩸', vital: '📊' };
+  for (const item of sorted) {
+    text += `${fmtTime(item.time)}  ${emojis[item.type]} ${item.name}`;
+    if (item.detail) text += `（${item.detail}）`;
+    text += `\n`;
+  }
+  text += `\n═══════════════════════════════════\n\n`;
+
+  const meds = state.items.filter(i=>i.type==='med');
+  const measures = state.items.filter(i=>i.type==='measure');
+  const tubes = state.items.filter(i=>i.type==='tube');
+  const vitals = state.items.filter(i=>i.type==='vital');
+
+  if (vitals.length) {
+    text += `【生命体征监测】\n`;
+    for (const v of vitals) {
+      const vt = v.vitals || {};
+      const vp = [];
+      if (vt.hr) vp.push(`HR ${vt.hr}bpm`);
+      if (vt.sbp) vp.push(`BP ${vt.sbp}${vt.dbp?'/'+vt.dbp:''}mmHg`);
+      if (vt.rr) vp.push(`RR ${vt.rr}次/分`);
+      if (vt.spo2) vp.push(`SpO₂ ${vt.spo2}%`);
+      if (vt.temp) vp.push(`T ${vt.temp}°C`);
+      if (vt.gcs) vp.push(`GCS ${vt.gcs}分`);
+      if (vt.etco2) vp.push(`EtCO₂ ${vt.etco2}mmHg`);
+      if (vt.bg) vp.push(`BG ${vt.bg}mmol/L`);
+      text += `${fmtTime(v.time)}  ${vp.join(' | ')}\n`;
+    }
+    text += `\n`;
+  }
+
+  if (meds.length) {
+    text += `【用药汇总】\n`;
+    meds.forEach(m => { text += `· ${fmtTime(m.time)} ${m.name} ${m.detail}\n`; });
+    text += `\n`;
+  }
+  if (measures.length) {
+    text += `【措施汇总】\n`;
+    measures.forEach(m => { text += `· ${fmtTime(m.time)} ${m.name}\n`; });
+    text += `\n`;
+  }
+  if (tubes.length) {
+    text += `【管道汇总】\n`;
+    tubes.forEach(t => { text += `· ${fmtTime(t.time)} ${t.name}\n`; });
+    text += `\n`;
+  }
+
+  text += `═══════════════════════════════════\n\n`;
+  text += `【抢救结果】\n□ 病情稳定  □ 抢救成功  □ 自动出院  □ 死亡\n\n`;
+  
+  const doctor = document.getElementById('ptDoctor').value || '________';
+  const nurse = document.getElementById('ptNurse').value || '________';
+  const verifier = document.getElementById('ptVerifier').value || '________';
+  
+  text += `【签名确认】\n`;
+  text += `抢救医师：${doctor}\n`;
+  text += `执行护士：${nurse}\n`;
+  text += `记录核对者：${verifier}\n`;
+  text += `记录时间：${nowFull()}\n`;
+  
+  return text;
+}
+
+function renderRecord() {
+  const text = generateRecordText();
+  // Update inline record textarea if visible
+  const inlineTA = document.getElementById('inlineRecordText');
+  if (inlineTA) inlineTA.value = text;
+}
+
+function showRecordInline() {
+  // Switch to record tab and scroll inline textarea into view
+  const recordTab = document.querySelectorAll('.inline-tab')[4]; // 5th tab (records)
+  switchInlineTab('record', recordTab);
+}
+
+// ===== FAB =====
+function toggleFab() {
+  state.fabOpen = !state.fabOpen;
+  document.getElementById('fabMenu').classList.toggle('show', state.fabOpen);
+  document.getElementById('fabMain').classList.toggle('open', state.fabOpen);
+  document.getElementById('fabMain').textContent = state.fabOpen ? '✕' : '＋';
+}
+
+// ===== INLINE TAB SWITCHING =====
+let currentInlineTab = 'meds';
+let currentSubCat = null;
+
+function switchInlineTab(tab, el) {
+  currentInlineTab = tab;
+
+  // Update tab active states
+  document.querySelectorAll('.inline-tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  const subtabs = document.getElementById('inlineSubtabs');
+  const content = document.getElementById('inlineContent');
+
+  if (tab === 'record') {
+    // Show record text inline
+    subtabs.innerHTML = '';
+    const txt = generateRecordText();
+    content.innerHTML = `<textarea style="width:100%;height:100%;min-height:150px;border:none;padding:8px 4px;font-size:13px;line-height:1.8;font-family:'PingFang SC','Microsoft YaHei',serif;resize:none;outline:none;background:var(--bg);border-radius:8px;" id="inlineRecordText" readonly>${txt}</textarea>`;
+  } else if (tab === 'vitals') {
+    subtabs.innerHTML = '';
+    renderInlineVitalForm();
+  } else {
+    // meds / measures / tubes -> show sub-category tabs
+    let cats;
+    if (tab === 'meds') cats = MED_DATA;
+    else if (tab === 'measures') cats = MEASURE_DATA;
+    else cats = TUBE_DATA;
+    
+    const tabKeys = Object.keys(cats);
+    currentSubCat = tabKeys[0];
+    subtabs.innerHTML = tabKeys.map((k,i) => 
+      `<button class="inline-subtab ${i===0?'active':''}" onclick="switchInlineSubcat('${tab}','${k}',this)">${cats[k].icon} ${cats[k].label}</button>`
+    ).join('');
+    renderInlineCat(tab, currentSubCat);
+  }
+}
+
+function switchInlineSubcat(tab, catKey, el) {
+  currentSubCat = catKey;
+  document.querySelectorAll('.inline-subtab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderInlineCat(tab, catKey);
+}
+
+function renderInlineCat(type, catKey) {
+  const container = document.getElementById('inlineContent');
+  let cat;
+  if (type === 'meds') cat = MED_DATA[catKey];
+  else if (type === 'measures') cat = MEASURE_DATA[catKey];
+  else if (type === 'tubes') cat = TUBE_DATA[catKey];
+  if (!cat) return;
+
+  let html = `<div class="sel-cat"><div class="sel-cat-title">${cat.icon} ${cat.label}</div><div class="sel-grid">`;
+
+  cat.items.forEach(item => {
+    if (type === 'meds') {
+      html += `<button class="sel-btn" onclick="onMedClick('${item.name.replace(/'/g,'\\\'')}', ${JSON.stringify(item.doses).replace(/"/g,'&quot;')})">
+        <span class="sel-name">${item.name}</span>
+        <span class="sel-desc">${item.doses[0]}</span>
+      </button>`;
+    } else {
+      const detail = item.detail || '';
+      html += `<button class="sel-btn" onclick="onMeasureOrTubeClick('${type}','${item.name.replace(/'/g,'\\\'')}','${detail.replace(/'/g,'\\\'')}')">
+        <span class="sel-name">${item.name}</span>
+        ${detail ? `<span class="sel-desc">${detail}</span>` : ''}
+      </button>`;
+    }
+  });
+
+  html += `</div></div>`;
+  html += `<div class="sel-custom">
+    <input type="text" id="customInput" placeholder="${type==='meds'?'自定义药物':'自定义名称'}">
+    <button class="btn-add" onclick="onCustomAdd('${type}')">添加</button>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+function renderInlineVitalForm() {
+  const container = document.getElementById('inlineContent');
+  container.innerHTML = `
+    <div class="vital-form-m">
+      <div class="vital-row-m"><label>❤️ 心率 (HR)</label><input type="number" id="mvHR" placeholder="bpm" min="0" max="300" step="1"></div>
+      <div class="vital-row-m"><label>🩸 血压 (BP)</label><div class="vital-bp-m"><input type="number" id="mvSBP" placeholder="收缩压" min="0" max="300" step="1"><span>/</span><input type="number" id="mvDBP" placeholder="舒张压" min="0" max="200" step="1"></div></div>
+      <div class="vital-row-m"><label>🫁 呼吸频率 (RR)</label><input type="number" id="mvRR" placeholder="次/分" min="0" max="60" step="1"></div>
+      <div class="vital-row-m"><label>💨 血氧 (SpO₂)</label><input type="text" id="mvSpO2" placeholder="%" list="spo2ListM"></div>
+      <div class="vital-row-m"><label>🌡️ 体温 (T)</label><input type="number" id="mvTemp" placeholder="°C" min="30" max="45" step="0.1"></div>
+      <div class="vital-row-m"><label>🧠 GCS</label><input type="number" id="mvGCS" placeholder="3-15" min="3" max="15" step="1"></div>
+      <div class="vital-row-m"><label>📉 EtCO₂</label><input type="number" id="mvEtCO2" placeholder="mmHg" min="0" max="150" step="1"></div>
+      <div class="vital-row-m"><label>🩸 血糖 (BG)</label><input type="text" id="mvBG" placeholder="mmol/L"></div>
+      <div class="vital-hint-m">留空项不记录 · 填写后点击下方按钮</div>
+      <button class="vital-btn-m" onclick="addVitalsMobile()">📊 记录生命体征</button>
+    </div>`;
+}
+
+function addVitalsMobile() {
+  const parts = [];
+  const hr = document.getElementById('mvHR').value.trim();
+  const sbp = document.getElementById('mvSBP').value.trim();
+  const dbp = document.getElementById('mvDBP').value.trim();
+  const rr = document.getElementById('mvRR').value.trim();
+  const spo2 = document.getElementById('mvSpO2').value.trim();
+  const temp = document.getElementById('mvTemp').value.trim();
+  const gcs = document.getElementById('mvGCS').value.trim();
+  const etco2 = document.getElementById('mvEtCO2').value.trim();
+  const bg = document.getElementById('mvBG').value.trim();
+
+  if (hr) parts.push(`HR ${hr}bpm`);
+  if (sbp && dbp) parts.push(`BP ${sbp}/${dbp}mmHg`);
+  else if (sbp) parts.push(`SBP ${sbp}mmHg`);
+  if (rr) parts.push(`RR ${rr}次/分`);
+  if (spo2) parts.push(`SpO₂ ${spo2}%`);
+  if (temp) parts.push(`T ${temp}°C`);
+  if (gcs) parts.push(`GCS ${gcs}`);
+  if (etco2) parts.push(`EtCO₂ ${etco2}mmHg`);
+  if (bg) parts.push(`BG ${bg}mmol/L`);
+
+  if (parts.length === 0) { showToast('请至少填写一项生命体征'); return; }
+
+  state.items.push({
+    id: ++idCounter,
+    type: 'vital',
+    name: '生命体征',
+    detail: parts.join(' | '),
+    time: now(),
+    vitals: { hr, sbp, dbp, rr, spo2, temp, gcs, etco2, bg }
+  });
+  state.items.sort((a,b) => a.time.localeCompare(b.time));
+  renderAll();
+  showToast(`已记录体征 (${parts.length}项)`);
+  if (navigator.vibrate) navigator.vibrate(20);
+}
+
+function onMedClick(name, doses) {
+  if (doses.length <= 1) {
+    medsToAdd(name, doses[0] || '');
+  } else {
+    document.getElementById('doseTitle').textContent = `选择「${name}」剂量`;
+    const optionsHtml = doses.map(d => `<button class="dose-opt" onclick="onDoseSelect('${name}','${d}')">${d}</button>`).join('');
+    document.getElementById('doseOptions').innerHTML = optionsHtml;
+    window._pendingMedName = name;
+    document.getElementById('doseModal').classList.add('show');
+  }
+}
+
+function onDoseSelect(name, dose) {
+  medsToAdd(name, dose);
+  closeDoseModal();
+}
+
+function confirmDoseCustom() {
+  const custom = document.getElementById('doseCustom').value.trim();
+  if (custom && window._pendingMedName) {
+    medsToAdd(window._pendingMedName, custom);
+  }
+  closeDoseModal();
+}
+
+function closeDoseModal() {
+  document.getElementById('doseModal').classList.remove('show');
+  window._pendingMedName = null;
+  document.getElementById('doseCustom').value = '';
+}
+
+function onMeasureOrTubeClick(type, name, detail) {
+  if (type === 'measures') measureToAdd(name, detail);
+  else tubeToAdd(name, detail);
+}
+
+function onCustomAdd(type) {
+  const input = document.getElementById('customInput');
+  const val = input.value.trim();
+  if (!val) return;
+  if (type === 'meds') medsToAdd(val, '');
+  else if (type === 'measures') measureToAdd(val, '');
+  else if (type === 'tubes') tubeToAdd(val, '');
+  input.value = '';
+}
+
+// ===== PATIENT SHEET =====
+function togglePatientSheet() {
+  const sheet = document.getElementById('patientSheet');
+  const overlay = document.getElementById('patientOverlay');
+  const isOpen = sheet.classList.contains('show');
+  if (isOpen) {
+    sheet.classList.remove('show');
+    overlay.classList.remove('show');
+  } else {
+    sheet.classList.add('show');
+    overlay.classList.add('show');
+  }
+}
+
+// ===== COPY / EXPORT =====
+function handleCopyText() {
+  const text = generateRecordText();
+  if (!text.trim()) { showToast('暂无内容'); return; }
+  navigator.clipboard.writeText(text).then(() => showToast('✅ 已复制'));
+}
+
+function handleExportJSON() {
+  const data = {
+    patient: {
+      name: document.getElementById('ptName').value,
+      gender: document.getElementById('ptGender').value,
+      age: document.getElementById('ptAge').value,
+      dept: document.getElementById('ptDept').value,
+      id: document.getElementById('ptId').value,
+      date: document.getElementById('ptDate').value,
+      chief: document.getElementById('ptChief').value,
+      diagnosis: document.getElementById('ptDiag').value,
+    },
+    rescueStart: state.rescueStart,
+    rescueEnd: state.rescueEnd,
+    items: state.items,
+    exportedAt: nowFull(),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `抢救记录_${document.getElementById('ptName').value || '未知'}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📥 已导出JSON');
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ===== DRAG / RESIZE =====
+let dragActive = false;
+let dragStartY = 0;
+let dragStartPanelH = 0;
+let inlinePanelH = 220; // default inline panel height in px
+
+function dragStart(e) {
+  dragActive = true;
+  const touch = e.touches ? e.touches[0] : e;
+  dragStartY = touch.clientY;
+  dragStartPanelH = inlinePanelH;
+  document.body.style.userSelect = 'none';
+  
+  document.addEventListener('mousemove', dragMove);
+  document.addEventListener('mouseup', dragEnd);
+  document.addEventListener('touchmove', dragMove, { passive: false });
+  document.addEventListener('touchend', dragEnd);
+  
+  e.preventDefault();
+}
+
+function dragMove(e) {
+  if (!dragActive) return;
+  const touch = e.touches ? e.touches[0] : e;
+  const dy = dragStartY - touch.clientY; // upward = positive = increase panel
+  const mainArea = document.getElementById('mainArea');
+  const mainH = mainArea.clientHeight;
+  const newH = Math.max(120, Math.min(mainH - 80, dragStartPanelH + dy));
+  inlinePanelH = newH;
+  document.getElementById('inlinePanel').style.height = newH + 'px';
+  e.preventDefault();
+}
+
+function dragEnd() {
+  dragActive = false;
+  document.body.style.userSelect = '';
+  document.removeEventListener('mousemove', dragMove);
+  document.removeEventListener('mouseup', dragEnd);
+  document.removeEventListener('touchmove', dragMove);
+  document.removeEventListener('touchend', dragEnd);
+  
+  // Save preference
+  try { localStorage.setItem('erc_panel_h', inlinePanelH); } catch(e) {}
+}
+
+// ===== INIT =====
+function init() {
+  document.getElementById('ptDate').value = new Date().toISOString().slice(0,10);
+  
+  // Restore panel height
+  try {
+    const saved = localStorage.getItem('erc_panel_h');
+    if (saved) {
+      inlinePanelH = parseInt(saved);
+      document.getElementById('inlinePanel').style.height = inlinePanelH + 'px';
+    } else {
+      document.getElementById('inlinePanel').style.height = inlinePanelH + 'px';
+    }
+  } catch(e) {
+    document.getElementById('inlinePanel').style.height = inlinePanelH + 'px';
+  }
+  
+  // Init default tab
+  switchInlineTab('meds', document.querySelector('.inline-tab'));
+  
+  renderAll();
+
+  // Close modals on ESC
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeTimeModal();
+      closeDoseModal();
+    }
+  });
+
+  // Close fab menu on outside click
+  document.addEventListener('click', e => {
+    if (state.fabOpen && !e.target.closest('.fab-container')) {
+      toggleFab();
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>

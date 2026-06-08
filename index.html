@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>急诊抢救记录生成系统 v2.0</title>
+<style>
+  :root {
+    --primary: #1565C0;
+    --primary-light: #1E88E5;
+    --primary-dark: #0D47A1;
+    --accent: #00897B;
+    --danger: #D32F2F;
+    --warning: #F57C00;
+    --info: #0288D1;
+    --bg: #ECEFF1;
+    --surface: #FFFFFF;
+    --surface2: #F5F7FA;
+    --border: #CFD8DC;
+    --text: #263238;
+    --text-secondary: #607D8B;
+    --text-light: #90A4AE;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --shadow-lg: 0 4px 20px rgba(0,0,0,0.12);
+    --radius: 8px;
+    --radius-sm: 4px;
+    --transition: 0.2s ease;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .app-header {
+    background: var(--primary);
+    color: white;
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .app-header .logo-area { display: flex; align-items: center; gap: 12px; }
+  .app-header .logo-icon { width: 36px; height: 36px; background: rgba(255,255,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .app-header h1 { font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
+  .app-header .header-actions { display: flex; gap: 8px; }
+  .btn {
+    padding: 8px 16px; border: none; border-radius: var(--radius-sm);
+    cursor: pointer; font-size: 13px; font-weight: 500;
+    transition: var(--transition); display: inline-flex; align-items: center; gap: 6px; font-family: inherit;
+  }
+  .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-primary { background: white; color: var(--primary); }
+  .btn-accent { background: var(--accent); color: white; }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-outline { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-lg { padding: 10px 24px; font-size: 14px; }
+
+  .app-body { display: flex; height: calc(100vh - 56px); overflow: hidden; }
+
+  /* LEFT PANEL */
+  .left-panel { width: 440px; min-width: 440px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .left-panel .section-tabs { display: flex; border-bottom: 2px solid var(--border); background: var(--surface2); }
+  .left-panel .section-tab { flex: 1; padding: 10px 4px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: var(--transition); user-select: none; }
+  .left-panel .section-tab:hover { color: var(--primary); }
+  .left-panel .section-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .left-panel .tab-content { flex: 1; overflow-y: auto; padding: 12px; }
+  .left-panel .tab-pane { display: none; }
+  .left-panel .tab-pane.active { display: block; }
+
+  /* Patient Info — Collapsible */
+  .patient-info { background: var(--surface2); border-bottom: 1px solid var(--border); overflow: hidden; }
+  .patient-info .pi-header {
+    padding: 10px 12px; cursor: pointer; user-select: none;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: background 0.15s;
+  }
+  .patient-info .pi-header:hover { background: rgba(0,0,0,0.03); }
+  .patient-info .pi-header .pi-title {
+    font-size: 14px; font-weight: 600; color: var(--text);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .patient-info .pi-header .pi-chevron {
+    font-size: 12px; color: var(--text-light); transition: transform 0.25s ease;
+    width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+  }
+  .patient-info.collapsed .pi-header .pi-chevron { transform: rotate(-90deg); }
+  .patient-info .pi-body {
+    max-height: 600px; overflow: hidden; transition: max-height 0.35s ease, padding 0.35s ease;
+    padding: 0 12px 12px;
+  }
+  .patient-info.collapsed .pi-body { max-height: 0; padding-top: 0; padding-bottom: 0; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .info-field { display: flex; flex-direction: column; }
+  .info-field.full { grid-column: 1 / -1; }
+  .info-field label { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; }
+  .info-field input, .info-field select, .info-field textarea {
+    padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 13px; font-family: inherit; transition: var(--transition);
+  }
+  .info-field input:focus, .info-field select:focus, .info-field textarea:focus {
+    border-color: var(--primary-light); outline: none; box-shadow: 0 0 0 2px rgba(30,136,229,0.15);
+  }
+  .info-field textarea { resize: vertical; min-height: 40px; }
+
+  /* ITEM GRID */
+  .category-group { margin-bottom: 14px; }
+  .category-group .cat-header { font-size: 13px; font-weight: 600; color: var(--primary-dark); margin-bottom: 6px; padding: 4px 8px; background: #E3F2FD; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px; }
+  .category-group .cat-header .cat-icon { font-size: 16px; }
+  .item-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .item-btn {
+    padding: 7px 8px; background: white; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    cursor: pointer; font-size: 12px; text-align: left; transition: var(--transition);
+    display: flex; align-items: center; justify-content: space-between; font-family: inherit;
+  }
+  .item-btn:hover { background: #E3F2FD; border-color: var(--primary-light); }
+  .item-btn:active { transform: scale(0.97); }
+  .item-btn .item-desc { font-size: 10px; color: var(--text-light); }
+
+  /* Custom input row */
+  .custom-row { display: flex; gap: 4px; margin-top: 6px; }
+  .custom-row input {
+    flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 12px; font-family: inherit;
+  }
+  .custom-row .btn-accent { white-space: nowrap; padding: 6px 12px; font-size: 12px; }
+
+  /* RIGHT PANEL */
+  .right-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .timeline-panel { flex: 1; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .timeline-panel .timeline-header { padding: 10px 16px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .timeline-panel .timeline-header h3 { font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  .timeline-panel .timeline-stats { font-size: 12px; color: var(--text-secondary); }
+  .timeline-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
+  .timeline-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); margin-bottom: 4px; background: var(--surface2); border-left: 3px solid var(--primary); transition: var(--transition); }
+  .timeline-item.type-med { border-left-color: #D32F2F; }
+  .timeline-item.type-measure { border-left-color: #00897B; }
+  .timeline-item.type-tube { border-left-color: #5C6BC0; }
+  .timeline-item .tl-time { min-width: 64px; font-size: 13px; font-weight: 600; color: var(--primary-dark); cursor: pointer; padding: 2px 4px; border-radius: var(--radius-sm); }
+  .timeline-item .tl-time:hover { background: #E3F2FD; }
+  .timeline-item .tl-type-badge { font-size: 10px; padding: 2px 6px; border-radius: 10px; background: #E3F2FD; color: var(--primary); font-weight: 500; white-space: nowrap; }
+  .timeline-item.type-med .tl-type-badge { background: #FFEBEE; color: #C62828; }
+  .timeline-item.type-measure .tl-type-badge { background: #E0F2F1; color: #00695C; }
+  .timeline-item.type-tube .tl-type-badge { background: #E8EAF6; color: #283593; }
+  .timeline-item .tl-content { flex: 1; font-size: 13px; }
+  .timeline-item .tl-content .tl-name { font-weight: 500; }
+  .timeline-item .tl-content .tl-detail { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+  .timeline-item .tl-actions { display: flex; gap: 4px; opacity: 0; transition: var(--transition); }
+  .timeline-item:hover .tl-actions { opacity: 1; }
+  .tl-actions button { padding: 2px 6px; font-size: 11px; border: none; border-radius: 3px; cursor: pointer; background: transparent; color: var(--text-light); }
+  .tl-actions button:hover { background: #ECEFF1; color: var(--text); }
+  .tl-actions button.del:hover { background: #FFEBEE; color: #D32F2F; }
+  .timeline-empty { text-align: center; padding: 40px 20px; color: var(--text-light); }
+  .timeline-empty .empty-icon { font-size: 40px; margin-bottom: 8px; }
+
+  .record-panel { height: 280px; background: var(--surface); display: flex; flex-direction: column; }
+  .record-panel .record-header { padding: 10px 16px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .record-panel .record-header h3 { font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  .record-panel textarea { flex: 1; border: none; padding: 14px 16px; font-size: 13px; line-height: 1.8; font-family: "PingFang SC", "Microsoft YaHei", "SimSun", serif; resize: none; outline: none; color: var(--text); }
+  .record-panel textarea:focus { background: #FAFAFA; }
+
+  .footer-bar { padding: 8px 16px; background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .footer-bar .status-msg { font-size: 12px; color: var(--text-secondary); }
+  .footer-bar .actions { display: flex; gap: 6px; }
+
+  /* MODALS */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box { background: white; border-radius: var(--radius); padding: 20px; min-width: 280px; box-shadow: var(--shadow-lg); }
+  .modal-box h4 { margin-bottom: 12px; font-size: 15px; }
+  .modal-box input[type="time"] { width: 100%; padding: 8px; font-size: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: inherit; margin-bottom: 12px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Vital Signs Form */
+  .vital-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 4px 0; }
+  .vital-row { display: flex; flex-direction: column; gap: 3px; }
+  .vital-row.full { grid-column: 1 / -1; }
+  .vital-row label { font-size: 11px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+  .vital-row input { padding: 8px 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; font-family: inherit; transition: var(--transition); }
+  .vital-row input:focus { border-color: var(--primary-light); outline: none; box-shadow: 0 0 0 2px rgba(30,136,229,0.15); }
+  .vital-bp-row { display: flex; gap: 4px; align-items: center; }
+  .vital-bp-row input { flex: 1; }
+  .vital-bp-row span { font-size: 12px; color: var(--text-light); }
+  .vital-btn { margin-top: 6px; grid-column: 1 / -1; padding: 10px; background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: var(--transition); }
+  .vital-btn:hover { opacity: 0.92; }
+  .vital-btn:active { transform: scale(0.98); }
+  .vital-hint { font-size: 10px; color: var(--text-light); grid-column: 1 / -1; margin-top: -2px; }
+
+  /* timeline type-vital */
+  .timeline-item.type-vital { border-left-color: #7B1FA2; }
+  .timeline-item.type-vital .tl-type-badge { background: #F3E5F5; color: #6A1B9A; }
+  .vital-mini-grid { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; font-size: 11px; color: var(--text-secondary); }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #323232; color: white; padding: 10px 20px; border-radius: 20px;
+    font-size: 13px; z-index: 2000;
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 2s; pointer-events: none;
+  }
+  @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+  @keyframes toastOut { from { opacity:1; } to { opacity:0; } }
+
+  @media (max-width: 900px) {
+    .app-body { flex-direction: column; }
+    .left-panel { width: 100%; min-width: 100%; max-height: 45vh; }
+    .right-panel { max-height: 55vh; }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="logo-area">
+    <div class="logo-icon">🏥</div>
+    <div>
+      <h1>急诊抢救记录系统 <span style="font-size:12px;opacity:0.7;font-weight:400;">v2.0</span></h1>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-outline btn-sm" onclick="handleClear()">🗑 清空</button>
+    <button class="btn btn-outline btn-sm" onclick="handleExportJSON()">📥 导出JSON</button>
+    <button class="btn btn-primary btn-sm" onclick="handleCopyText()">📋 复制文本</button>
+  </div>
+</header>
+
+<div class="app-body">
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <!-- Patient Info — Collapsible -->
+    <div class="patient-info" id="patientInfoPanel">
+      <div class="pi-header" onclick="togglePatientInfo()" title="点击收起/展开患者信息">
+        <span class="pi-title">
+          <span>📝</span>
+          <span id="piSummary">患者信息</span>
+        </span>
+        <span class="pi-chevron" id="piChevron">◀</span>
+      </div>
+      <div class="pi-body">
+        <div class="info-grid">
+          <div class="info-field"><label>姓名</label><input type="text" id="ptName" placeholder="患者姓名" oninput="updatePiSummary()"></div>
+          <div class="info-field"><label>性别</label><select id="ptGender" onchange="updatePiSummary()"><option value="">--</option><option>男</option><option>女</option></select></div>
+          <div class="info-field"><label>年龄</label><input type="text" id="ptAge" placeholder="年龄" oninput="updatePiSummary()"></div>
+          <div class="info-field"><label>科室</label><input type="text" id="ptDept" value="急诊科" oninput="updatePiSummary()"></div>
+          <div class="info-field"><label>就诊号</label><input type="text" id="ptId" placeholder="病历号/就诊号" oninput="updatePiSummary()"></div>
+          <div class="info-field"><label>抢救日期</label><input type="date" id="ptDate" onchange="updatePiSummary()"></div>
+          <div class="info-field full"><label>主诉</label><input type="text" id="ptChief" placeholder="主要症状及持续时间" oninput="updatePiSummary()"></div>
+          <div class="info-field full"><label>初步诊断</label><input type="text" id="ptDiag" placeholder="初步诊断" oninput="updatePiSummary()"></div>
+          <div class="info-field"><label>抢救医师</label><input type="text" id="ptDoctor" placeholder="医师签名"></div>
+          <div class="info-field"><label>执行护士</label><input type="text" id="ptNurse" placeholder="护士签名"></div>
+          <div class="info-field"><label>记录核对者</label><input type="text" id="ptVerifier" placeholder="核对者签名"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-tabs">
+      <div class="section-tab active" data-tab="tab-meds" onclick="switchTab('tab-meds',this)">💊 急救药物</div>
+      <div class="section-tab" data-tab="tab-measures" onclick="switchTab('tab-measures',this)">🩺 抢救措施</div>
+      <div class="section-tab" data-tab="tab-tubes" onclick="switchTab('tab-tubes',this)">🩸 管道通路</div>
+      <div class="section-tab" data-tab="tab-vitals" onclick="switchTab('tab-vitals',this)">📊 生命体征</div>
+    </div>
+
+    <div class="tab-content">
+      <!-- MEDS TAB -->
+      <div class="tab-pane active" id="tab-meds">
+        <!-- 心肺复苏用药 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">❤️</span> 心肺复苏用药</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMed('肾上腺素','1mg iv')"><span>肾上腺素<span class="item-desc">1mg/3ml</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('阿托品','0.5-1mg iv')"><span>阿托品<span class="item-desc">0.5mg/1ml</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('胺碘酮','150mg iv')"><span>胺碘酮<span class="item-desc">150mg/3ml</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('利多卡因','50-100mg iv')"><span>利多卡因<span class="item-desc">50-100mg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('硫酸镁','2.5g iv（扭转室速）')"><span>硫酸镁<span class="item-desc">扭转室速</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('维拉帕米','5mg iv（PSVT）')"><span>维拉帕米<span class="item-desc">PSVT</span></span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 血管活性药 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">💉</span> 血管活性药</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMed('多巴胺','5-20μg/kg/min 泵入')"><span>多巴胺<span class="item-desc">5-20μg/kg/min</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('去甲肾上腺素','0.05-0.5μg/kg/min')"><span>去甲肾上腺素<span class="item-desc">泵入</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('多巴酚丁胺','2.5-10μg/kg/min')"><span>多巴酚丁胺<span class="item-desc">正性肌力</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('间羟胺','0.5-5mg iv')"><span>间羟胺<span class="item-desc">阿拉明</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('异丙肾上腺素','1mg 泵入')"><span>异丙肾上腺素<span class="item-desc">泵入</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('去氧肾上腺素','50-200μg iv')"><span>去氧肾上腺素<span class="item-desc">新福林</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('肾上腺素泵入','0.1-0.5μg/kg/min')"><span>肾上腺素泵入<span class="item-desc">极低剂量</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('米力农','50μg/kg负荷后0.25-0.75μg')"><span>米力农<span class="item-desc">磷酸二酯酶抑制剂</span></span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 呼吸系统用药 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🫁</span> 呼吸系统用药</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMed('尼可刹米','0.375g iv')"><span>尼可刹米<span class="item-desc">0.375g</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('洛贝林','3mg iv')"><span>洛贝林<span class="item-desc">3mg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('氨茶碱','0.25g iv')"><span>氨茶碱<span class="item-desc">0.25g</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('沙丁胺醇雾化','2.5mg 雾化吸入')"><span>沙丁胺醇雾化<span class="item-desc">2.5mg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('异丙托溴铵雾化','0.5mg 雾化')"><span>异丙托溴铵雾化<span class="item-desc">0.5mg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('布地奈德雾化','1-2mg 雾化')"><span>布地奈德雾化<span class="item-desc">1-2mg</span></span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 镇静镇痛药 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">💤</span> 镇静镇痛药</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMed('地西泮','5-10mg iv')"><span>地西泮<span class="item-desc">安定</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('咪达唑仑','2-5mg iv')"><span>咪达唑仑<span class="item-desc">力月西</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('丙泊酚','1-2mg/kg iv')"><span>丙泊酚<span class="item-desc">1-2mg/kg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('吗啡','3-5mg iv')"><span>吗啡<span class="item-desc">3-5mg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('芬太尼','50-100μg iv')"><span>芬太尼<span class="item-desc">50-100μg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('舒芬太尼','5-10μg iv')"><span>舒芬太尼<span class="item-desc">5-10μg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('右美托咪定','1μg/kg负荷后0.2-0.7μg/kg/h')"><span>右美托咪定<span class="item-desc"> dexmedetomidine</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('哌替啶','25-50mg im/iv')"><span>哌替啶<span class="item-desc">杜冷丁</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('氯胺酮','0.5-1mg/kg iv')"><span>氯胺酮<span class="item-desc">镇静镇痛</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('氟哌利多','2.5-5mg iv')"><span>氟哌利多<span class="item-desc">镇静止吐</span></span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 神经科用药 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🧠</span> 神经科用药</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMed('甘露醇','125-250ml ivgtt')"><span>甘露醇<span class="item-desc">降颅压</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('呋塞米','20-40mg iv')"><span>呋塞米<span class="item-desc">辅助降颅压</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('地塞米松','5-10mg iv')"><span>地塞米松<span class="item-desc">5-10mg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('苯巴比妥','100-200mg im/iv')"><span>苯巴比妥<span class="item-desc">抗惊厥</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('丙戊酸钠','400mg iv')"><span>丙戊酸钠<span class="item-desc">抗癫痫</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('左乙拉西坦','500mg iv')"><span>左乙拉西坦<span class="item-desc">抗癫痫</span></span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 消化系统用药 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🍽</span> 消化系统用药</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMed('血凝酶','1-2KU iv')"><span>血凝酶<span class="item-desc">立止血</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('氨甲环酸','0.5-1g iv')"><span>氨甲环酸<span class="item-desc">止血</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('奥美拉唑','40mg iv')"><span>奥美拉唑<span class="item-desc">PPI</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('生长抑素','250μg负荷后250μg/h')"><span>生长抑素<span class="item-desc">上消化道出血</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('葡萄糖酸钙','10% 10ml iv')"><span>葡萄糖酸钙<span class="item-desc">10% 10ml</span></span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 抗过敏/解毒/其他 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🧪</span> 抗过敏/解毒/其他</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMed('肾上腺素（过敏）','0.3-0.5mg im/iv')"><span>肾上腺素（过敏）<span class="item-desc">0.3-0.5mg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('异丙嗪','25mg im')"><span>异丙嗪<span class="item-desc">非那根</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('氢化可的松','100-200mg iv')"><span>氢化可的松<span class="item-desc">抗过敏</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('纳洛酮','0.4-2mg iv')"><span>纳洛酮<span class="item-desc">0.4-2mg</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('氟马西尼','0.2-1mg iv')"><span>氟马西尼<span class="item-desc">苯二氮卓解毒</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('碳酸氢钠','5% 125-250ml iv')"><span>碳酸氢钠<span class="item-desc">纠正酸中毒</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('胰岛素','4-8U iv/泵入')"><span>胰岛素<span class="item-desc">降血糖</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('50%葡萄糖','40-60ml iv')"><span>50%葡萄糖<span class="item-desc">低血糖</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('硝酸甘油','5-10μg/min 泵入')"><span>硝酸甘油<span class="item-desc">泵入</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('硝普钠','0.5-8μg/kg/min 泵入')"><span>硝普钠<span class="item-desc">降压</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('乌拉地尔','12.5-25mg iv')"><span>乌拉地尔<span class="item-desc">降压</span></span><span>+</span></button>
+            <button class="item-btn" onclick="addMed('地尔硫卓','10mg iv（房颤室率控制）')"><span>地尔硫卓<span class="item-desc">室率控制</span></span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 自定义药物 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">✏️</span> 自定义药物</div>
+          <div class="custom-row">
+            <input type="text" id="customMedName" placeholder="药品名称">
+            <input type="text" id="customMedDose" placeholder="剂量用法">
+            <button class="btn btn-accent btn-sm" onclick="addCustomMed()">添加</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MEASURES TAB -->
+      <div class="tab-pane" id="tab-measures">
+        <!-- 循环支持 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🫀</span> 循环支持</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMeasure('心肺复苏','CPR，持续胸外按压+人工通气')"><span>心肺复苏 (CPR)</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('电除颤','双向波200J/单向波360J')"><span>电除颤</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('同步电复律','据心律失常类型选能量')"><span>同步电复律</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('胸外按压','持续胸外心脏按压')"><span>胸外按压</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('心电监护','持续心电监护')"><span>心电监护</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('无创血压监测','NIBP监测')"><span>无创血压监测</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('有创血压监测','ABP监测')"><span>有创血压监测</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('中心静脉压监测','CVP监测')"><span>中心静脉压监测</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('血氧饱和度监测','SpO₂持续监测')"><span>血氧饱和度监测</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('PICCO监测','脉波指示剂连续心排量监测')"><span>PICCO监测</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('IABP','主动脉内球囊反搏')"><span>IABP</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('ECMO','体外膜肺氧合支持')"><span>ECMO</span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 气道与呼吸 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🫁</span> 气道与呼吸</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMeasure('气管插管','经口/经鼻气管插管')"><span>气管插管</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('机械通气','呼吸机辅助通气')"><span>机械通气</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('球囊面罩通气','简易呼吸器辅助通气')"><span>球囊面罩通气</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('环甲膜穿刺/切开','紧急气道建立')"><span>环甲膜穿刺/切开</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('经皮气管切开','床旁气管切开')"><span>经皮气管切开</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('开放气道','仰头抬颏法/托颌法')"><span>开放气道</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('吸痰','气道分泌物清除')"><span>吸痰</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('吸氧','鼻导管/面罩给氧')"><span>吸氧</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('高流量氧疗','HFNC 经鼻高流量氧疗')"><span>高流量氧疗(HFNC)</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('呼气末CO₂监测','EtCO₂监测')"><span>呼气末CO₂监测</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('支气管镜检','床旁支气管镜')"><span>支气管镜检</span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 诊疗操作 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🔬</span> 诊疗操作</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMeasure('心电图检查','12导联心电图')"><span>心电图 (ECG)</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('快速血糖检测','指尖血糖')"><span>快速血糖检测</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('血气分析','动脉血气分析')"><span>血气分析</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('床旁超声','急诊POCUS检查')"><span>床旁超声(POCUS)</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('FAST超声','床旁创伤超声')"><span>FAST超声</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('洗胃','电动洗胃机洗胃')"><span>洗胃</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('导尿','留置导尿')"><span>导尿</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('留置胃管','鼻饲/胃肠减压')"><span>留置胃管</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('胸腔穿刺','胸腔穿刺术')"><span>胸腔穿刺</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('腹腔穿刺','腹腔穿刺术')"><span>腹腔穿刺</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('腰椎穿刺','腰椎穿刺术')"><span>腰椎穿刺</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('骨髓穿刺','骨髓穿刺术')"><span>骨髓穿刺</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('CT检查','急诊CT')"><span>CT检查</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('血液净化','CRRT/血液灌流')"><span>血液净化</span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 创伤处理 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🩹</span> 创伤处理</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMeasure('止血处理','压迫/止血带/药物止血')"><span>止血处理</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('包扎固定','伤口包扎及骨折固定')"><span>包扎固定</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('清创缝合','伤口清创缝合')"><span>清创缝合</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('破伤风免疫','TAT/破伤风免疫球蛋白')"><span>破伤风免疫</span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 复苏后管理 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🔄</span> 复苏后管理</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addMeasure('亚低温治疗','目标温度管理TTM')"><span>亚低温治疗(TTM)</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('脑保护','脱水/亚低温/巴比妥昏迷')"><span>脑保护</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('容量管理','液体复苏/限制性液体')"><span>容量管理</span><span>+</span></button>
+            <button class="item-btn" onclick="addMeasure('输血','红细胞/血浆/血小板')"><span>输血</span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 自定义措施 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">✏️</span> 自定义措施</div>
+          <div class="custom-row">
+            <input type="text" id="customMeasureName" placeholder="措施名称">
+            <input type="text" id="customMeasureDetail" placeholder="说明（可选）">
+            <button class="btn btn-accent btn-sm" onclick="addCustomMeasure()">添加</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VITALS TAB -->
+      <div class="tab-pane" id="tab-vitals">
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">📊</span> 生命体征记录</div>
+          <div class="vital-form">
+            <div class="vital-row">
+              <label>❤️ 心率 (HR)</label>
+              <input type="number" id="vHR" placeholder="bpm" min="0" max="300" step="1">
+            </div>
+            <div class="vital-row">
+              <label>🩸 血压 (BP)</label>
+              <div class="vital-bp-row">
+                <input type="number" id="vSBP" placeholder="收缩压" min="0" max="300" step="1">
+                <span>/</span>
+                <input type="number" id="vDBP" placeholder="舒张压" min="0" max="200" step="1">
+              </div>
+            </div>
+            <div class="vital-row">
+              <label>🫁 呼吸频率 (RR)</label>
+              <input type="number" id="vRR" placeholder="次/分" min="0" max="60" step="1">
+            </div>
+            <div class="vital-row">
+              <label>💨 血氧饱和度 (SpO₂)</label>
+              <input type="text" id="vSpO2" placeholder="%" list="spo2List">
+              <datalist id="spo2List"><option value="99"><option value="98"><option value="95"><option value="90"><option value="85"><option value="80"></datalist>
+            </div>
+            <div class="vital-row">
+              <label>🌡️ 体温 (T)</label>
+              <input type="number" id="vTemp" placeholder="°C" min="30" max="45" step="0.1">
+            </div>
+            <div class="vital-row">
+              <label>🧠 GCS 评分</label>
+              <div class="vital-bp-row">
+                <input type="number" id="vGCS" placeholder="总分 3-15" min="3" max="15" step="1" style="flex:2;">
+                <span style="font-size:10px;color:var(--text-light);white-space:nowrap;">E+V+M</span>
+              </div>
+            </div>
+            <div class="vital-row">
+              <label>📉 EtCO₂</label>
+              <input type="number" id="vEtCO2" placeholder="mmHg" min="0" max="150" step="1">
+            </div>
+            <div class="vital-row">
+              <label>🩸 血糖 (BG)</label>
+              <input type="text" id="vBG" placeholder="mmol/L" list="bgList">
+              <datalist id="bgList"><option value="LO"><option value="3.9"><option value="5.6"><option value="7.8"><option value="11.1"><option value="HI"></datalist>
+            </div>
+            <div class="vital-hint">💡 留空的项不记录 · 填写需要记录的指标后点击下方按钮</div>
+            <button class="vital-btn" onclick="addVitals()">📊 记录生命体征</button>
+          </div>
+        </div>
+        <div class="category-group" style="margin-top:16px;">
+          <div class="cat-header"><span class="cat-icon">⏱</span> 快捷记录</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="quickVital('HR')"><span>仅心率 HR</span><span>+</span></button>
+            <button class="item-btn" onclick="quickVital('BP')"><span>仅血压 BP</span><span>+</span></button>
+            <button class="item-btn" onclick="quickVital('SpO2')"><span>仅血氧 SpO₂</span><span>+</span></button>
+            <button class="item-btn" onclick="quickVital('Temp')"><span>仅体温 T</span><span>+</span></button>
+            <button class="item-btn" onclick="quickVital('GCS')"><span>仅GCS评分</span><span>+</span></button>
+            <button class="item-btn" onclick="quickVital('BG')"><span>仅血糖 BG</span><span>+</span></button>
+          </div>
+        </div>
+      </div>
+      <!-- TUBES TAB -->
+      <div class="tab-pane" id="tab-tubes">
+        <!-- 血管通路 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">💉</span> 血管通路</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addTube('外周静脉通路','IV 留置针')"><span>外周静脉通路(IV)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('中心静脉置管','CVC 颈内/锁骨下/股静脉')"><span>中心静脉置管(CVC)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('动脉置管','桡动脉/股动脉 ABP监测')"><span>动脉置管(ABP)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('PICC','经外周中心静脉置管')"><span>PICC</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('骨髓腔输液','紧急骨内通路 IO')"><span>骨髓腔输液(IO)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('输液港','PORT 穿刺输液')"><span>输液港(PORT)</span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 气道管道 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🫁</span> 气道管道</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addTube('气管插管导管','ID 7.0-8.5mm')"><span>气管插管导管</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('口咽通气管','OPA')"><span>口咽通气管(OPA)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('鼻咽通气管','NPA')"><span>鼻咽通气管(NPA)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('喉罩','LMA')"><span>喉罩(LMA)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('气管切开套管','气切套管')"><span>气管切开套管</span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 其他管道 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">🩺</span> 其他管道</div>
+          <div class="item-grid">
+            <button class="item-btn" onclick="addTube('胃管','鼻饲/胃肠减压')"><span>胃管(鼻胃管)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('导尿管','Foley 留置导尿')"><span>导尿管(Foley)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('胸腔闭式引流管','胸引管')"><span>胸腔闭式引流管</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('腹腔引流管','腹引管')"><span>腹腔引流管</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('T管','胆道引流T管')"><span>T管(胆道引流)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('脑室引流管','脑室外引流EVD')"><span>脑室引流管(EVD)</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('CRRT管路','连续肾脏替代治疗管路')"><span>CRRT管路</span><span>+</span></button>
+            <button class="item-btn" onclick="addTube('ECMO管路','VA/VV-ECMO管路')"><span>ECMO管路</span><span>+</span></button>
+          </div>
+        </div>
+        <!-- 自定义管道 -->
+        <div class="category-group">
+          <div class="cat-header"><span class="cat-icon">✏️</span> 自定义管道</div>
+          <div class="custom-row">
+            <input type="text" id="customTubeName" placeholder="管道名称">
+            <input type="text" id="customTubeDetail" placeholder="型号/说明">
+            <button class="btn btn-accent btn-sm" onclick="addCustomTube()">添加</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="timeline-panel">
+      <div class="timeline-header">
+        <h3>⏱ 抢救时间线</h3>
+        <span class="timeline-stats" id="timelineStats">共 0 项记录</span>
+      </div>
+      <div class="timeline-list" id="timelineList">
+        <div class="timeline-empty">
+          <div class="empty-icon">📋</div>
+          <p>点击左侧药物、措施或管道开始记录</p>
+          <p style="font-size:11px;color:var(--text-light);">每次点击将自动记录当前时间</p>
+        </div>
+      </div>
+    </div>
+    <div class="record-panel">
+      <div class="record-header">
+        <h3>📄 抢救记录文本</h3>
+        <span style="font-size:11px;color:var(--text-secondary);">可编辑 · 自动生成</span>
+      </div>
+      <textarea id="recordText" placeholder="选择左侧项目后，此处将自动生成抢救记录文本..."></textarea>
+    </div>
+    <div class="footer-bar">
+      <span class="status-msg" id="statusMsg">就绪 · 请开始记录</span>
+      <div class="actions">
+        <button class="btn btn-accent btn-sm" onclick="handleQuickTime('start')">🟢 抢救开始</button>
+        <button class="btn btn-danger btn-sm" onclick="handleQuickTime('end')">🔴 抢救结束</button>
+        <button class="btn btn-outline btn-sm" style="color:var(--primary);border-color:var(--primary);" onclick="handleExportJSON()">📥 导出JSON</button>
+        <button class="btn btn-primary btn-sm" onclick="handleCopyText()">📋 复制文本</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TIME EDIT MODAL -->
+<div class="modal-overlay" id="timeEditorOverlay">
+  <div class="modal-box">
+    <h4>⏰ 编辑时间</h4>
+    <input type="time" id="timeEditorInput" step="1">
+    <div class="modal-actions">
+      <button class="btn" style="background:var(--surface2);border:1px solid var(--border);" onclick="closeTimeEditor()">取消</button>
+      <button class="btn btn-primary" onclick="saveTimeEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = {
+  items: [],
+  editingItemId: null,
+  rescueStartTime: null,
+  rescueEndTime: null,
+};
+let itemIdCounter = 0;
+
+function now() { return new Date().toTimeString().slice(0,8); }
+function nowFull() {
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function getDateStr() {
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}年${p(d.getMonth()+1)}月${p(d.getDate())}日`;
+}
+function fmtTime(t) { return t && t.length >= 5 ? t.slice(0,5) : t; }
+
+function addItem(type, name, detail) {
+  state.items.push({ id: ++itemIdCounter, type, name, detail: detail||'', time: now() });
+  state.items.sort((a,b) => a.time.localeCompare(b.time));
+  renderAll();
+  showToast(`已添加「${name.slice(0,10)}」`);
+}
+function addMed(name, dose) { addItem('med', name, dose); }
+function addMeasure(name, detail) { addItem('measure', name, detail||''); }
+function addTube(name, detail) { addItem('tube', name, detail||''); }
+
+function addCustomMed() {
+  const n = document.getElementById('customMedName').value.trim();
+  const d = document.getElementById('customMedDose').value.trim();
+  if (!n) { showToast('请输入药品名称'); return; }
+  addMed(n, d || '自定义剂量');
+  document.getElementById('customMedName').value = '';
+  document.getElementById('customMedDose').value = '';
+}
+function addCustomMeasure() {
+  const n = document.getElementById('customMeasureName').value.trim();
+  const d = document.getElementById('customMeasureDetail').value.trim();
+  if (!n) { showToast('请输入措施名称'); return; }
+  addMeasure(n, d);
+  document.getElementById('customMeasureName').value = '';
+  document.getElementById('customMeasureDetail').value = '';
+}
+function addCustomTube() {
+  const n = document.getElementById('customTubeName').value.trim();
+  const d = document.getElementById('customTubeDetail').value.trim();
+  if (!n) { showToast('请输入管道名称'); return; }
+  addTube(n, d);
+  document.getElementById('customTubeName').value = '';
+  document.getElementById('customTubeDetail').value = '';
+}
+
+function addVitals() {
+  const parts = [];
+  const hr = document.getElementById('vHR').value.trim();
+  const sbp = document.getElementById('vSBP').value.trim();
+  const dbp = document.getElementById('vDBP').value.trim();
+  const rr = document.getElementById('vRR').value.trim();
+  const spo2 = document.getElementById('vSpO2').value.trim();
+  const temp = document.getElementById('vTemp').value.trim();
+  const gcs = document.getElementById('vGCS').value.trim();
+  const etco2 = document.getElementById('vEtCO2').value.trim();
+  const bg = document.getElementById('vBG').value.trim();
+
+  if (hr) parts.push(`HR ${hr}bpm`);
+  if (sbp && dbp) parts.push(`BP ${sbp}/${dbp}mmHg`);
+  else if (sbp) parts.push(`SBP ${sbp}mmHg`);
+  if (rr) parts.push(`RR ${rr}次/分`);
+  if (spo2) parts.push(`SpO₂ ${spo2}%`);
+  if (temp) parts.push(`T ${temp}°C`);
+  if (gcs) parts.push(`GCS ${gcs}`);
+  if (etco2) parts.push(`EtCO₂ ${etco2}mmHg`);
+  if (bg) parts.push(`BG ${bg}mmol/L`);
+
+  if (parts.length === 0) { showToast('请至少填写一项生命体征'); return; }
+
+  state.items.push({
+    id: ++itemIdCounter,
+    type: 'vital',
+    name: '生命体征',
+    detail: parts.join(' | '),
+    time: now(),
+    vitals: { hr, sbp, dbp, rr, spo2, temp, gcs, etco2, bg }
+  });
+  state.items.sort((a,b) => a.time.localeCompare(b.time));
+  renderAll();
+  showToast(`已记录体征 (${parts.length}项)`);
+
+  // Clear form
+  ['vHR','vSBP','vDBP','vRR','vSpO2','vTemp','vGCS','vEtCO2','vBG'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+function quickVital(key) {
+  const idMap = { HR:'vHR', BP:'vSBP', SpO2:'vSpO2', Temp:'vTemp', GCS:'vGCS', BG:'vBG' };
+  const el = document.getElementById(idMap[key]);
+  if (!el) return;
+  if (key === 'BP') {
+    document.getElementById('vSBP').focus();
+    setTimeout(() => document.getElementById('vDBP').focus(), 500);
+  } else {
+    el.focus();
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function deleteItem(id) {
+  state.items = state.items.filter(i => i.id !== id);
+  renderAll();
+  showToast('已删除记录项');
+}
+
+function openTimeEditor(id) {
+  state.editingItemId = id;
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('timeEditorInput').value = item.time;
+  document.getElementById('timeEditorOverlay').classList.add('show');
+  document.getElementById('timeEditorInput').focus();
+}
+function closeTimeEditor() {
+  document.getElementById('timeEditorOverlay').classList.remove('show');
+  state.editingItemId = null;
+}
+function saveTimeEdit() {
+  const t = document.getElementById('timeEditorInput').value;
+  const item = state.items.find(i => i.id === state.editingItemId);
+  if (item && t) { item.time = t; state.items.sort((a,b)=>a.time.localeCompare(b.time)); renderAll(); showToast('时间已更新'); }
+  closeTimeEditor();
+}
+
+function handleQuickTime(which) {
+  if (which === 'start') {
+    state.rescueStartTime = now();
+    addItem('measure', '⏵ 抢救开始', '');
+    showToast(`抢救开始: ${fmtTime(state.rescueStartTime)}`);
+  } else {
+    state.rescueEndTime = now();
+    addItem('measure', '⏹ 抢救结束', '');
+    showToast(`抢救结束: ${fmtTime(state.rescueEndTime)}`);
+  }
+}
+
+function handleClear() {
+  if (state.items.length === 0) return;
+  if (confirm('确定要清空所有记录吗？此操作不可恢复。')) {
+    state.items = [];
+    state.rescueStartTime = null;
+    state.rescueEndTime = null;
+    renderAll();
+    showToast('已清空所有记录');
+  }
+}
+
+// ===== PATIENT INFO COLLAPSIBLE =====
+function togglePatientInfo() {
+  const panel = document.getElementById('patientInfoPanel');
+  panel.classList.toggle('collapsed');
+  // Save preference
+  try { localStorage.setItem('erc_pi_collapsed', panel.classList.contains('collapsed') ? '1' : '0'); } catch(e) {}
+}
+
+function updatePiSummary() {
+  const name = document.getElementById('ptName').value.trim();
+  const gender = document.getElementById('ptGender').value;
+  const age = document.getElementById('ptAge').value.trim();
+  const dept = document.getElementById('ptDept').value.trim();
+  const parts = [];
+  if (name) parts.push(name);
+  if (gender) parts.push(gender);
+  if (age) parts.push(age + '岁');
+  if (dept) parts.push(dept);
+  const summary = parts.length > 0 ? '📝 ' + parts.join(' · ') : '📝 患者信息';
+  document.getElementById('piSummary').textContent = summary;
+}
+
+// Restore collapsed state on load
+(function() {
+  try {
+    if (localStorage.getItem('erc_pi_collapsed') === '1') {
+      document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('patientInfoPanel').classList.add('collapsed');
+      });
+    }
+  } catch(e) {}
+})();
+
+function generateRecordText() {
+  const ptName = document.getElementById('ptName').value || '________';
+  const ptGender = document.getElementById('ptGender').value || '';
+  const ptAge = document.getElementById('ptAge').value || '';
+  const ptDept = document.getElementById('ptDept').value || '急诊科';
+  const ptId = document.getElementById('ptId').value || '';
+  const ptDate = document.getElementById('ptDate').value || getDateStr();
+  const ptChief = document.getElementById('ptChief').value || '';
+  const ptDiag = document.getElementById('ptDiag').value || '';
+  const meds = state.items.filter(i=>i.type==='med');
+  const measures = state.items.filter(i=>i.type==='measure');
+  const tubes = state.items.filter(i=>i.type==='tube');
+  const vitals = state.items.filter(i=>i.type==='vital');
+
+  let text = '═══════════════════════════════════\n';
+  text += '          急 诊 抢 救 记 录\n';
+  text += '═══════════════════════════════════\n\n';
+  text += '【基本信息】\n';
+  text += `姓名：${ptName}      性别：${ptGender}      年龄：${ptAge}\n`;
+  text += `科室：${ptDept}      就诊号/病历号：${ptId}\n`;
+  text += `抢救日期：${ptDate}\n`;
+  if (ptChief) text += `主诉：${ptChief}\n`;
+  if (ptDiag) text += `初步诊断：${ptDiag}\n`;
+  text += '\n';
+
+  if (state.rescueStartTime || state.rescueEndTime) {
+    text += '【抢救时间】\n';
+    if (state.rescueStartTime) text += `抢救开始：${fmtTime(state.rescueStartTime)}\n`;
+    if (state.rescueEndTime) text += `抢救结束：${fmtTime(state.rescueEndTime)}\n`;
+    if (state.rescueStartTime && state.rescueEndTime) {
+      const [sh,sm] = state.rescueStartTime.split(':').map(Number);
+      const [eh,em] = state.rescueEndTime.split(':').map(Number);
+      const sM = sh*60+sm, eM = eh*60+em;
+      const diff = eM >= sM ? eM-sM : (24*60-sM+eM);
+      text += `抢救时长：约 ${diff} 分钟\n`;
+    }
+    text += '\n';
+  }
+
+  text += '═══════════════════════════════════\n\n';
+  text += '【抢救经过】\n\n';
+  const sorted = [...state.items].sort((a,b)=>a.time.localeCompare(b.time));
+  const typeEmoji = { med: '💊', measure: '🩺', tube: '🩸', vital: '📊' };
+  for (const item of sorted) {
+    text += `${fmtTime(item.time)}  ${typeEmoji[item.type]} ${item.name}`;
+    if (item.detail && item.detail.trim()) text += `（${item.detail}）`;
+    text += '\n';
+  }
+  text += '\n═══════════════════════════════════\n\n';
+
+  if (vitals.length) {
+    text += '【生命体征监测记录】\n';
+    for (const v of vitals) {
+      const vt = v.vitals || {};
+      text += `${fmtTime(v.time)}  `;
+      const vp = [];
+      if (vt.hr) vp.push(`HR ${vt.hr}bpm`);
+      if (vt.sbp) vp.push(`BP ${vt.sbp}${vt.dbp?'/'+vt.dbp:''}mmHg`);
+      if (vt.rr) vp.push(`RR ${vt.rr}次/分`);
+      if (vt.spo2) vp.push(`SpO₂ ${vt.spo2}%`);
+      if (vt.temp) vp.push(`T ${vt.temp}°C`);
+      if (vt.gcs) vp.push(`GCS ${vt.gcs}分`);
+      if (vt.etco2) vp.push(`EtCO₂ ${vt.etco2}mmHg`);
+      if (vt.bg) vp.push(`BG ${vt.bg}mmol/L`);
+      text += vp.join(' | ') + '\n';
+    }
+  }
+
+  if (meds.length) {
+    text += '【用药情况汇总】\n';
+    for (const m of meds) { text += `· ${fmtTime(m.time)}  ${m.name}${m.detail?'  '+m.detail:''}\n`; }
+    text += '\n';
+  }
+  if (measures.length) {
+    text += '【抢救措施汇总】\n';
+    for (const m of measures) { text += `· ${fmtTime(m.time)}  ${m.name}${m.detail?'（'+m.detail+'）':''}\n`; }
+    text += '\n';
+  }
+  if (tubes.length) {
+    text += '【管道通路汇总】\n';
+    for (const t of tubes) { text += `· ${fmtTime(t.time)}  ${t.name}${t.detail?'（'+t.detail+'）':''}\n`; }
+    text += '\n';
+  }
+
+  text += '═══════════════════════════════════\n\n';
+  text += '【抢救结果】\n';
+  text += '□ 病情稳定，转入病房/ICU\n';
+  text += '□ 抢救成功，留观\n';
+  text += '□ 自动出院\n';
+  text += '□ 死亡\n';
+  text += '□ 其他：________\n\n';
+  
+  const doctor = document.getElementById('ptDoctor').value || '________';
+  const nurse = document.getElementById('ptNurse').value || '________';
+  const verifier = document.getElementById('ptVerifier').value || '________';
+  
+  text += '【签名确认】\n';
+  text += `抢救医师：${doctor}\n`;
+  text += `执行护士：${nurse}\n`;
+  text += `记录核对者：${verifier}\n`;
+  text += `记录时间：${nowFull()}\n`;
+  text += '\n═══════════════════════════════════\n';
+  return text;
+}
+
+function renderAll() {
+  renderTimeline();
+  renderRecord();
+  updateStats();
+}
+function renderTimeline() {
+  const container = document.getElementById('timelineList');
+  const sorted = [...state.items].sort((a,b)=>a.time.localeCompare(b.time));
+  if (sorted.length === 0) {
+    container.innerHTML = `<div class="timeline-empty"><div class="empty-icon">📋</div><p>点击左侧药物、措施或管道开始记录</p><p style="font-size:11px;color:var(--text-light);">每次点击将自动记录当前时间</p></div>`;
+    return;
+  }
+  const typeBadge = { med: '药物', measure: '措施', tube: '管道', vital: '体征' };
+  const typeClass = { med: 'type-med', measure: 'type-measure', tube: 'type-tube', vital: 'type-vital' };
+  container.innerHTML = sorted.map(item => `
+    <div class="timeline-item ${typeClass[item.type]}">
+      <span class="tl-time" onclick="openTimeEditor(${item.id})" title="点击编辑时间">${fmtTime(item.time)}</span>
+      <span class="tl-type-badge">${typeBadge[item.type]}</span>
+      <div class="tl-content">
+        <div class="tl-name">${item.name}</div>
+        ${item.detail?`<div class="tl-detail">${item.detail}</div>`:''}
+      </div>
+      <div class="tl-actions">
+        <button onclick="openTimeEditor(${item.id})" title="编辑时间">✏️</button>
+        <button class="del" onclick="deleteItem(${item.id})" title="删除">✕</button>
+      </div>
+    </div>`).join('');
+}
+function renderRecord() {
+  document.getElementById('recordText').value = generateRecordText();
+}
+function updateStats() {
+  const c = state.items.length;
+  const m = state.items.filter(i=>i.type==='med').length;
+  const ms = state.items.filter(i=>i.type==='measure').length;
+  const t = state.items.filter(i=>i.type==='tube').length;
+  const v = state.items.filter(i=>i.type==='vital').length;
+  document.getElementById('timelineStats').textContent = `共 ${c} 项（💊${m} 🩺${ms} 🩸${t} 📊${v}）`;
+  document.getElementById('statusMsg').textContent = c>0 ? `已记录 ${c} 项 · ${now()}` : '就绪 · 请开始记录';
+}
+
+function handleCopyText() {
+  const text = document.getElementById('recordText').value;
+  if (!text.trim()) { showToast('暂无记录内容'); return; }
+  navigator.clipboard.writeText(text).then(()=>showToast('✅ 已复制到剪贴板')).catch(()=>{
+    const ta=document.getElementById('recordText'); ta.select(); document.execCommand('copy'); showToast('✅ 已复制到剪贴板');
+  });
+}
+
+function handleExportJSON() {
+  const data = {
+    patient: {
+      name: document.getElementById('ptName').value,
+      gender: document.getElementById('ptGender').value,
+      age: document.getElementById('ptAge').value,
+      dept: document.getElementById('ptDept').value,
+      id: document.getElementById('ptId').value,
+      date: document.getElementById('ptDate').value,
+      chief: document.getElementById('ptChief').value,
+      diagnosis: document.getElementById('ptDiag').value,
+    },
+    rescueStartTime: state.rescueStartTime,
+    rescueEndTime: state.rescueEndTime,
+    items: state.items,
+    fullText: document.getElementById('recordText').value,
+    generatedAt: nowFull(),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `急诊抢救记录_${document.getElementById('ptName').value||'未知'}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📥 已导出JSON数据');
+}
+
+function showToast(msg) {
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2500);
+}
+
+function switchTab(tabId, el) {
+  document.querySelectorAll('.section-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeTimeEditor();
+});
+document.getElementById('timeEditorOverlay').addEventListener('click', function(e){
+  if(e.target===this) closeTimeEditor();
+});
+
+function init() {
+  document.getElementById('ptDate').value = new Date().toISOString().slice(0,10);
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>
