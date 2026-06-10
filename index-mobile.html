@@ -714,6 +714,7 @@ window.docxReady = import('https://esm.sh/docx@8.5.0').then(m => { window.docx =
   <div class="top-actions">
     <button class="btn-icon" onclick="togglePatientSheet()" title="患者信息">👤</button>
     <button class="btn-icon" onclick="showRecordInline()" title="查看记录">📄</button>
+    <button class="btn-icon" onclick="showHistoryInline()" title="历史记录">📋</button>
     <button class="btn-icon" onclick="handleClear()" title="清空">🗑</button>
   </div>
 </div>
@@ -758,9 +759,6 @@ window.docxReady = import('https://esm.sh/docx@8.5.0').then(m => { window.docx =
       </button>
       <button class="inline-tab" onclick="switchInlineTab('record', this)">
         <span class="it-icon">📄</span><span>记录</span>
-      </button>
-      <button class="inline-tab" onclick="switchInlineTab('history', this)">
-        <span class="it-icon">📋</span><span>历史</span>
       </button>
     </div>
 
@@ -1275,6 +1273,13 @@ function showRecordInline() {
   // Switch to record tab and scroll inline textarea into view
   const recordTab = document.querySelectorAll('.inline-tab')[4]; // 5th tab (records)
   switchInlineTab('record', recordTab);
+}
+
+function showHistoryInline() {
+  // Switch to history view in inline panel (not a regular tab)
+  const tabs = document.querySelectorAll('.inline-tab');
+  tabs.forEach(t => t.classList.remove('active'));
+  switchInlineTab('history', null);
 }
 
 // ===== FAB =====

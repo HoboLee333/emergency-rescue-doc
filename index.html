@@ -270,6 +270,7 @@ window.docxReady = import('https://esm.sh/docx@8.5.0').then(m => { window.docx =
     </div>
   </div>
   <div class="header-actions">
+    <button class="btn btn-outline btn-sm" id="btnHistory" onclick="showHistoryTab()">📋 历史记录</button>
     <button class="btn btn-outline btn-sm" onclick="handleClear()">🗑 清空</button>
     <button class="btn btn-outline btn-sm" onclick="handleExportDocx()">📄 导出Word</button>
     <button class="btn btn-primary btn-sm" onclick="handleCopyText()">📋 复制文本</button>
@@ -310,7 +311,6 @@ window.docxReady = import('https://esm.sh/docx@8.5.0').then(m => { window.docx =
       <div class="section-tab" data-tab="tab-measures" onclick="switchTab('tab-measures',this)">🩺 抢救措施</div>
       <div class="section-tab" data-tab="tab-tubes" onclick="switchTab('tab-tubes',this)">🩸 管道通路</div>
       <div class="section-tab" data-tab="tab-vitals" onclick="switchTab('tab-vitals',this)">📊 生命体征</div>
-      <div class="section-tab" data-tab="tab-history" onclick="switchTab('tab-history',this)">📋 历史记录</div>
     </div>
 
     <div class="tab-content">
@@ -1553,6 +1553,20 @@ function switchTab(tabId, el) {
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById(tabId).classList.add('active');
+  // De-highlight header history button
+  const hb = document.getElementById('btnHistory');
+  if (hb) hb.classList.remove('btn-primary'); hb && hb.classList.add('btn-outline');
+}
+
+function showHistoryTab() {
+  document.querySelectorAll('.section-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-history').classList.add('active');
+  renderHistory();
+  // Highlight header history button
+  const hb = document.getElementById('btnHistory');
+  hb.classList.remove('btn-outline');
+  hb.classList.add('btn-primary');
 }
 
 document.addEventListener('keydown', e => {
