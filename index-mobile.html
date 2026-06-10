@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1565C0">
 <title>急诊抢救记录</title>
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
 <style>
   :root {
     --primary: #1565C0;
@@ -744,8 +745,8 @@
     <button class="fab-action" onclick="handleCopyText()">
       <span class="fab-action-icon">📋</span> 复制文本
     </button>
-    <button class="fab-action" onclick="handleExportJSON()">
-      <span class="fab-action-icon">📥</span> 导出数据
+    <button class="fab-action" onclick="handleExportDocx()">
+      <span class="fab-action-icon">📄</span> 导出Word
     </button>
   </div>
   <button class="fab-main" id="fabMain" onclick="toggleFab()">＋</button>
@@ -1425,6 +1426,222 @@ function handleCopyText() {
   const text = generateRecordText();
   if (!text.trim()) { showToast('暂无内容'); return; }
   navigator.clipboard.writeText(text).then(() => showToast('✅ 已复制'));
+}
+
+function handleExportDocx() {
+  if (!window.docx) { showToast('⚠️ Word库加载中，请稍后重试'); return; }
+  const { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } = window.docx;
+
+  const ptName   = document.getElementById('ptName').value   || '________';
+  const ptGender = document.getElementById('ptGender').value || '';
+  const ptAge    = document.getElementById('ptAge').value    || '';
+  const ptDept   = document.getElementById('ptDept').value   || '急诊科';
+  const ptId     = document.getElementById('ptId').value     || '';
+  const ptDate   = document.getElementById('ptDate').value   || new Date().toISOString().slice(0,10);
+  const ptChief  = document.getElementById('ptChief').value  || '';
+  const ptDiag   = document.getElementById('ptDiag').value   || '';
+  const doctor   = document.getElementById('ptDoctor').value || '________';
+  const nurse    = document.getElementById('ptNurse').value  || '________';
+  const verifier = document.getElementById('ptVerifier').value || '________';
+
+  const meds     = state.items.filter(i=>i.type==='med');
+  const measures = state.items.filter(i=>i.type==='measure');
+  const tubes    = state.items.filter(i=>i.type==='tube');
+  const vitals   = state.items.filter(i=>i.type==='vital');
+  const sorted   = [...state.items].sort((a,b)=>a.time.localeCompare(b.time));
+
+  function sectionTitle(text) {
+    return new Paragraph({
+      children: [new TextRun({ text, bold: true, size: 24, color: '1565C0' })],
+      spacing: { before: 240, after: 80 },
+      border: { bottom: { color: '1565C0', space: 1, style: BorderStyle.SINGLE, size: 6 } },
+    });
+  }
+  function infoRow(label, value) {
+    return new Paragraph({
+      children: [
+        new TextRun({ text: label + '：', bold: true, size: 22 }),
+        new TextRun({ text: value, size: 22 }),
+      ],
+      spacing: { after: 60 },
+    });
+  }
+  function bodyLine(text, indent=false) {
+    return new Paragraph({
+      children: [new TextRun({ text, size: 22 })],
+      spacing: { after: 60 },
+      indent: indent ? { left: 360 } : undefined,
+    });
+  }
+
+  const children = [];
+
+  // 标题
+  children.push(new Paragraph({
+    children: [new TextRun({ text: '急诊抢救记录', bold: true, size: 40, color: '0D47A1' })],
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 160 },
+  }));
+  children.push(new Paragraph({
+    children: [new TextRun({ text: ptDept + '  ' + ptDate, size: 22, color: '607D8B' })],
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 240 },
+  }));
+
+  // 基本信息
+  children.push(sectionTitle('【基本信息】'));
+  children.push(new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({ children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '姓名', bold: true, size: 22 })] })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: ptName, size: 22 })] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '性别', bold: true, size: 22 })] })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: ptGender, size: 22 })] })] }),
+      ]}),
+      new TableRow({ children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '年龄', bold: true, size: 22 })] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: ptAge, size: 22 })] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '就诊号', bold: true, size: 22 })] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: ptId, size: 22 })] })] }),
+      ]}),
+      ...(ptChief ? [new TableRow({ children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '主诉', bold: true, size: 22 })] })] }),
+        new TableCell({ columnSpan: 3, children: [new Paragraph({ children: [new TextRun({ text: ptChief, size: 22 })] })] }),
+      ]})] : []),
+      ...(ptDiag ? [new TableRow({ children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '初步诊断', bold: true, size: 22 })] })] }),
+        new TableCell({ columnSpan: 3, children: [new Paragraph({ children: [new TextRun({ text: ptDiag, size: 22 })] })] }),
+      ]})] : []),
+    ],
+  }));
+
+  // 抢救时间
+  if (state.rescueStart || state.rescueEnd) {
+    children.push(sectionTitle('【抢救时间】'));
+    if (state.rescueStart) children.push(infoRow('抢救开始', fmtTime(state.rescueStart)));
+    if (state.rescueEnd)   children.push(infoRow('抢救结束', fmtTime(state.rescueEnd)));
+    if (state.rescueStart && state.rescueEnd) {
+      const [sh,sm]=state.rescueStart.split(':').map(Number);
+      const [eh,em]=state.rescueEnd.split(':').map(Number);
+      const diff=(eh*60+em)>=(sh*60+sm)?(eh*60+em)-(sh*60+sm):(24*60-(sh*60+sm)+(eh*60+em));
+      children.push(infoRow('抢救时长', '约 ' + diff + ' 分钟'));
+    }
+  }
+
+  // 抢救经过
+  children.push(sectionTitle('【抢救经过】'));
+  if (sorted.length === 0) {
+    children.push(bodyLine('（暂无记录）'));
+  } else {
+    const typeLabel = { med: '药物', measure: '措施', tube: '管道', vital: '体征' };
+    for (const item of sorted) {
+      const detail = item.detail ? `（${item.detail}）` : '';
+      children.push(new Paragraph({
+        children: [
+          new TextRun({ text: fmtTime(item.time) + '  ', bold: true, size: 22, color: '1565C0' }),
+          new TextRun({ text: '[' + typeLabel[item.type] + ']  ', size: 20, color: '607D8B' }),
+          new TextRun({ text: item.name + detail, size: 22 }),
+        ],
+        spacing: { after: 60 },
+        indent: { left: 200 },
+      }));
+    }
+  }
+
+  // 生命体征
+  if (vitals.length) {
+    children.push(sectionTitle('【生命体征监测记录】'));
+    for (const v of vitals) {
+      const vt = v.vitals || {};
+      const vp = [];
+      if (vt.hr)    vp.push('HR ' + vt.hr + 'bpm');
+      if (vt.sbp)   vp.push('BP ' + vt.sbp + (vt.dbp ? '/' + vt.dbp : '') + 'mmHg');
+      if (vt.rr)    vp.push('RR ' + vt.rr + '次/分');
+      if (vt.spo2)  vp.push('SpO₂ ' + vt.spo2 + '%');
+      if (vt.temp)  vp.push('T ' + vt.temp + '°C');
+      if (vt.gcs)   vp.push('GCS ' + vt.gcs + '分');
+      if (vt.etco2) vp.push('EtCO₂ ' + vt.etco2 + 'mmHg');
+      if (vt.bg)    vp.push('BG ' + vt.bg + 'mmol/L');
+      children.push(new Paragraph({
+        children: [
+          new TextRun({ text: fmtTime(v.time) + '  ', bold: true, size: 22, color: '00897B' }),
+          new TextRun({ text: vp.join(' | '), size: 22 }),
+        ],
+        spacing: { after: 60 },
+        indent: { left: 200 },
+      }));
+    }
+  }
+
+  // 用药汇总
+  if (meds.length) {
+    children.push(sectionTitle('【用药情况汇总】'));
+    for (const m of meds) children.push(bodyLine('· ' + fmtTime(m.time) + '  ' + m.name + (m.detail ? '  ' + m.detail : ''), true));
+  }
+  // 措施汇总
+  if (measures.length) {
+    children.push(sectionTitle('【抢救措施汇总】'));
+    for (const m of measures) children.push(bodyLine('· ' + fmtTime(m.time) + '  ' + m.name + (m.detail ? '（' + m.detail + '）' : ''), true));
+  }
+  // 管道汇总
+  if (tubes.length) {
+    children.push(sectionTitle('【管道通路汇总】'));
+    for (const t of tubes) children.push(bodyLine('· ' + fmtTime(t.time) + '  ' + t.name + (t.detail ? '（' + t.detail + '）' : ''), true));
+  }
+
+  // 抢救结果
+  children.push(sectionTitle('【抢救结果】'));
+  ['□ 病情稳定，转入病房/ICU', '□ 抢救成功，留观', '□ 自动出院', '□ 死亡', '□ 其他：________'].forEach(t => children.push(bodyLine(t, true)));
+
+  // 签名确认
+  children.push(sectionTitle('【签名确认】'));
+  children.push(new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({ children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '抢救医师', bold: true, size: 22 })] })], width: { size: 30, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: doctor, size: 22 })] })] }),
+      ]}),
+      new TableRow({ children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '执行护士', bold: true, size: 22 })] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: nurse, size: 22 })] })] }),
+      ]}),
+      new TableRow({ children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '记录核对者', bold: true, size: 22 })] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: verifier, size: 22 })] })] }),
+      ]}),
+      new TableRow({ children: [
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '记录时间', bold: true, size: 22 })] })] }),
+        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: nowFull(), size: 22 })] })] }),
+      ]}),
+    ],
+  }));
+
+  const doc = new Document({
+    sections: [{
+      properties: { page: { margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 } } },
+      children,
+    }],
+    styles: {
+      default: { document: { run: { font: 'Microsoft YaHei', size: 22 } } },
+    },
+  });
+
+  Packer.toBlob(doc).then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `急诊抢救记录_${ptName}_${ptDate}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('📄 Word文档已导出');
+    document.getElementById('fabMenu').classList.remove('show');
+    state.fabOpen = false;
+  }).catch(err => {
+    console.error(err);
+    showToast('❌ 导出失败：' + err.message);
+  });
 }
 
 function handleExportJSON() {
