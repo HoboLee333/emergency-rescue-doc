@@ -7,7 +7,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1565C0">
 <title>急诊抢救记录</title>
-<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+<script>
+window.docxReady = import('https://esm.sh/docx@8.5.0').then(m => { window.docx = m; return m; }).catch(()=>null);
+</script>
 <style>
   :root {
     --primary: #1565C0;
@@ -1428,8 +1430,12 @@ function handleCopyText() {
   navigator.clipboard.writeText(text).then(() => showToast('✅ 已复制'));
 }
 
-function handleExportDocx() {
-  if (!window.docx) { showToast('⚠️ Word库加载中，请稍后重试'); return; }
+async function handleExportDocx() {
+  if (!window.docx) {
+    showToast('⏳ 正在加载 Word 引擎，请稍候...');
+    try { await window.docxReady; } catch(e) { showToast('❌ Word 引擎加载失败'); return; }
+    if (!window.docx) { showToast('❌ Word 引擎加载失败'); return; }
+  }
   const { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } = window.docx;
 
   const ptName   = document.getElementById('ptName').value   || '________';

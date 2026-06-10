@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>急诊抢救记录生成系统 v2.6</title>
-<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+<script>
+// 动态加载 docx (ESM → 全局变量)，兼容普通 script 环境
+window.docxReady = import('https://esm.sh/docx@8.5.0').then(m => { window.docx = m; return m; }).catch(()=>null);
+</script>
 <style>
   :root {
     --primary: #1565C0;
@@ -977,9 +980,13 @@ function handleCopyText() {
   });
 }
 
-function handleExportDocx() {
-  if (!window.docx) { showToast('⚠️ Word库加载中，请稍后重试'); return; }
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, Header, Footer, PageNumber, NumberFormat } = window.docx;
+async function handleExportDocx() {
+  if (!window.docx) {
+    showToast('⏳ 正在加载 Word 引擎，请稍候...');
+    try { await window.docxReady; } catch(e) { showToast('❌ Word 引擎加载失败'); return; }
+    if (!window.docx) { showToast('❌ Word 引擎加载失败'); return; }
+  }
+  const { Document, Packer, Paragraph, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } = window.docx;
 
   const ptName   = document.getElementById('ptName').value   || '________';
   const ptGender = document.getElementById('ptGender').value || '';
